@@ -3,81 +3,117 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Clock, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { DEFAULT_SLA_CONFIG, type PriorityLevel } from '@/lib/sla';
 
+const priorityOrder: PriorityLevel[] = ['Critical', 'High', 'Medium', 'Low'];
 
-const slaData = [
-  { category: 'Critical Potholes (Main Roads)', responseTime: '4 Hours', resolutionTime: '24 Hours' },
-  { category: 'Road Damage (Major)', responseTime: '8 Hours', resolutionTime: '72 Hours' },
-  { category: 'Street Light Outage', responseTime: '12 Hours', resolutionTime: '48 Hours' },
-  { category: 'Drainage & Gutter Issues', responseTime: '12 Hours', resolutionTime: '96 Hours' },
-  { category: 'Faded Road Markings', responseTime: '24 Hours', resolutionTime: '7 Days' },
-  { category: 'Other Minor Issues', responseTime: '48 Hours', resolutionTime: '14 Days' },
-];
+const priorityBadgeColors: Record<PriorityLevel, string> = {
+  Critical: 'bg-rose-100 text-rose-800 border-rose-300 font-bold',
+  High: 'bg-amber-100 text-amber-800 border-amber-300 font-bold',
+  Medium: 'bg-yellow-100 text-yellow-800 border-yellow-300 font-semibold',
+  Low: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-medium',
+};
 
 export default function SLAPolicyPage() {
   const router = useRouter();
 
   return (
-    <div className="container mx-auto p-4 md:p-8">
-      <Button variant="outline" onClick={() => router.back()} className="mb-4">
+    <div className="container mx-auto p-4 md:p-8 max-w-4xl space-y-6">
+      <Button variant="outline" onClick={() => router.back()} className="rounded-xl">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back
       </Button>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-3xl">Service Level Agreement (SLA) Policy</CardTitle>
+
+      <Card className="border-slate-200 shadow-md overflow-hidden bg-white">
+        <CardHeader className="bg-slate-900 text-white p-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <Badge className="bg-indigo-500 text-white text-[10px] font-bold px-2.5 py-0.5">
+                PMC OFFICIAL POLICY
+              </Badge>
+              <CardTitle className="text-2xl md:text-3xl font-black text-white">
+                Service Level Agreement (SLA) Policy
+              </CardTitle>
+            </div>
+            <Clock className="h-8 w-8 text-indigo-400 opacity-80" />
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4 text-muted-foreground">
-          <p>
-            The Pune Municipal Corporation (PMC) is committed to providing timely and effective resolution for all civic
-            issues reported through the Parivartan platform. This Service Level Agreement (SLA) outlines our commitment
-            to response and resolution times.
+
+        <CardContent className="p-6 space-y-6 text-slate-600 text-sm">
+          <p className="leading-relaxed">
+            The <strong>Pune Municipal Corporation (PMC)</strong> is committed to providing timely, transparent, and authoritative resolution for all civic issues reported through the Parivartan platform. This Service Level Agreement (SLA) defines the mandatory response and resolution deadlines enforced across all municipal departments.
           </p>
 
-          <h2 className="text-xl font-semibold text-foreground pt-4">Definitions</h2>
-          <ul className="list-disc pl-6 space-y-2">
-            <li>
-              <strong>Response Time:</strong> The time taken from when a complaint is verified by an SMC officer to when it is
-              assigned to a field worker or contractor for action.
-            </li>
-            <li>
-              <strong>Resolution Time:</strong> The total time taken from when a complaint is verified to when the work is
-              completed and marked as "Resolved" in the system.
-            </li>
-            <li>
-              <strong>Business Hours:</strong> SLAs are typically measured against standard municipal working hours (10:00 AM to 6:00 PM, Monday to Saturday), excluding public holidays. Critical issues may be addressed outside these hours.
-            </li>
-          </ul>
+          <div className="space-y-3 pt-2 border-t border-slate-100">
+            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-indigo-600" /> Key SLA Definitions
+            </h3>
+            <ul className="list-disc pl-5 space-y-2 text-slate-600">
+              <li>
+                <strong className="text-slate-800">Response SLA:</strong> Mandatory time window for a department official or worker to acknowledge and accept the complaint into active field queue.
+              </li>
+              <li>
+                <strong className="text-slate-800">Resolution SLA:</strong> Authoritative total time window from initial report submission to work completion, evidence upload, and official resolution verification.
+              </li>
+              <li>
+                <strong className="text-slate-800">Automated Escalation:</strong> If Response or Resolution deadlines are breached, the system automatically triggers Level 1 escalation to the Department Head and Level 2 escalation to PMC Central Administration.
+              </li>
+            </ul>
+          </div>
 
-          <h2 className="text-xl font-semibold text-foreground pt-4">SLA Targets</h2>
-          <p>The following table outlines the target SLA for different categories of complaints. These timelines may be affected by factors such as weather conditions, resource availability, and the complexity of the issue.</p>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Complaint Category</TableHead>
-                <TableHead>Target Response Time</TableHead>
-                <TableHead>Target Resolution Time</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {slaData.map((item) => (
-                <TableRow key={item.category}>
-                  <TableCell className="font-medium">{item.category}</TableCell>
-                  <TableCell>{item.responseTime}</TableCell>
-                  <TableCell>{item.resolutionTime}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          {/* Authoritative SLA Table directly derived from DEFAULT_SLA_CONFIG */}
+          <div className="space-y-3 pt-2 border-t border-slate-100">
+            <h3 className="text-base font-bold text-slate-900">Authoritative SLA Targets</h3>
+            <p className="text-xs text-slate-500">
+              Target response and resolution deadlines computed dynamically by the PMC SLA Engine:
+            </p>
 
-          <h2 className="text-xl font-semibold text-foreground pt-4">Escalation</h2>
-          <p>
-            If a complaint is not addressed within the specified SLA, it will be automatically escalated to a higher authority
-            within the SMC for immediate attention. Citizens will be notified of any delays or changes in the expected
-            resolution timeline.
-          </p>
+            <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
+              <Table>
+                <TableHeader className="bg-slate-100/80">
+                  <TableRow>
+                    <TableHead className="font-bold text-slate-700">Priority Level</TableHead>
+                    <TableHead className="font-bold text-slate-700">Mandatory Response Target</TableHead>
+                    <TableHead className="font-bold text-slate-700">Mandatory Resolution Target</TableHead>
+                    <TableHead className="font-bold text-slate-700">Reminder Threshold</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100">
+                  {priorityOrder.map((prio) => {
+                    const target = DEFAULT_SLA_CONFIG.global[prio];
+                    return (
+                      <TableRow key={prio} className="hover:bg-slate-50/80">
+                        <TableCell>
+                          <Badge variant="outline" className={priorityBadgeColors[prio]}>
+                            {prio} Priority
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-800">
+                          {target.responseHours} Hours
+                        </TableCell>
+                        <TableCell className="font-bold text-indigo-700">
+                          {target.resolutionHours} Hours ({target.resolutionHours / 24 < 1 ? `${target.resolutionHours}h` : `${target.resolutionHours / 24} Days`})
+                        </TableCell>
+                        <TableCell className="text-slate-500 text-xs">
+                          {target.reminderBeforeBreachHours}h before breach
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t border-slate-100">
+            <h3 className="text-base font-bold text-slate-900">Escalation Matrix</h3>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              When a ticket exceeds its target deadline without official status updates, the PMC SLA Monitor triggers automated Level 1 escalation to the <strong>Department Head</strong>, followed by Level 2 escalation to the <strong>Municipal Commissioner & PMC Central Administration</strong>. Citizens receive automated notification at each escalation milestone.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

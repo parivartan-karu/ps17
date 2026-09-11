@@ -241,7 +241,7 @@ export default function NotificationsManagementPage() {
           : null;
 
       const notificationData = {
-        title: title.trim() || 'SMC Update',
+        title: title.trim() || 'PMC Update',
         description: description.trim(),
         type,
         location: location.trim() || null,

@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { 
   Filter, MapPin, X, Layers, Flame, Clock, 
-  CheckCircle2, Search, Compass, RefreshCw, Landmark
+  CheckCircle2, Search, Compass, RefreshCw, Landmark, ShieldAlert
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -257,6 +258,39 @@ export default function SmcDashboard() {
                 Field Teams
               </p>
               <p className="text-xl font-black text-emerald-400 mt-0.5">{metrics.inProgressOrAssigned}</p>
+            </div>
+          </div>
+
+          {/* ── Operational Command Queues Card ──────────────────────────── */}
+          <div className="rounded-xl border border-slate-200/80 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 shrink-0 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider dark:text-slate-300 flex items-center gap-1.5">
+                <ShieldAlert className="h-3.5 w-3.5 text-red-500" /> Operational Command Queues
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">Live Action Stream</span>
+            </div>
+
+            <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar">
+              {activeReports.filter(r => r.slaBreached || r.escalationLevel || (!r.assignedWorkerId && !r.assignedContractor)).slice(0, 5).map(r => (
+                <div key={r.id} className="flex items-center justify-between p-2 rounded-lg border bg-slate-50 dark:bg-slate-900/60 text-xs">
+                  <div className="min-w-0 flex-1 pr-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-bold text-slate-900 dark:text-slate-100 truncate">{r.category}</span>
+                      {r.slaBreached && <Badge className="bg-red-600 text-white text-[9px] px-1 py-0 font-mono">SLA BREACHED</Badge>}
+                      {r.escalationLevel ? <Badge className="bg-amber-600 text-white text-[9px] px-1 py-0 font-mono">L{r.escalationLevel} ESCALATED</Badge> : null}
+                    </div>
+                    <p className="text-[10px] text-slate-500 truncate">{r.location}</p>
+                  </div>
+                  <Link href={`/smc/complaint/${r.id}`} className="shrink-0">
+                    <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold px-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                      Command View &rarr;
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+              {activeReports.filter(r => r.slaBreached || r.escalationLevel || (!r.assignedWorkerId && !r.assignedContractor)).length === 0 && (
+                <p className="text-[11px] text-slate-400 italic text-center py-2">No critical queue escalations pending.</p>
+              )}
             </div>
           </div>
 

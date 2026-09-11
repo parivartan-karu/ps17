@@ -124,10 +124,13 @@ export type Report = {
   queuePosition?: number; // Position in department queue
   assignmentHistory?: AssignmentHistory[]; // Track reassignments
   autoAssignmentScore?: number; // Score for matching worker (0-100)
-  // Incident linking fields
+  // Dedup & Coordination Fields
+  isDuplicate?: boolean;
   linkedIncidentId?: string | null;
   linkedMatchType?: string | null;
   linkedSimilarityScore?: number | null;
+  routingGate?: 'automatic' | 'department_verification' | 'manual_review';
+  requiresManualReview?: boolean;
   relatedReportCount?: number;
   reportFrequency?: number;
   lastRelatedAt?: string;
@@ -140,10 +143,14 @@ export type Report = {
   routingReason?: string;
   queueStatus?: 'queued' | 'pending_department' | 'accepted_by_department' | 'assigned' | 'assigned_worker' | 'in_progress' | 'completed';
   slaResponseDeadline?: string;
+  responseSlaBreached?: boolean;
+  responseSlaWarningSent?: boolean;
   slaDeadline?: string;
   slaBreached?: boolean;
   escalationLevel?: number;
   escalatedTo?: string;
+  riskScore?: number;
+  departmentTasks?: import('./complaint-context').DepartmentTask[];
   lastReminderSentAt?: string;
   lastEscalatedAt?: string;
 };

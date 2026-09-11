@@ -197,6 +197,25 @@ export async function dispatchNotification(params: DispatchNotificationParams) {
       if (input.targetUserId) {
         const userDoc = await firestore.collection('users').doc(input.targetUserId).get();
         tokenList = (userDoc.data()?.fcmTokens ?? []) as string[];
+      } else if (input.targetUserRole === 'department_head' && input.departmentId) {
+        const deptHeadSnap = await firestore
+          .collection('users')
+          .where('role', '==', 'department_head')
+          .where('departmentId', '==', input.departmentId)
+          .get();
+        deptHeadSnap.forEach((doc: any) => {
+          const tokens = (doc.data().fcmTokens ?? []) as string[];
+          tokenList.push(...tokens);
+        });
+      } else if (input.targetUserRole === 'official' || input.targetUserRole === 'admin') {
+        const adminSnap = await firestore
+          .collection('users')
+          .where('role', 'in', ['admin', 'official'])
+          .get();
+        adminSnap.forEach((doc: any) => {
+          const tokens = (doc.data().fcmTokens ?? []) as string[];
+          tokenList.push(...tokens);
+        });
       } else if (input.departmentId) {
         // Find users/staff in department with push enabled
         const deptSnap = await firestore
@@ -259,4 +278,66 @@ export async function dispatchNotification(params: DispatchNotificationParams) {
   }
 
   return copy;
+}
+
+/**
+ * Register EventBus subscribers to automatically dispatch role-tailored notifications upon workflow events.
+ */
+export function registerEventBusListeners() {
+  const { eventBus } = require('@/lib/event-bus');
+
+  eventBus.subscribe('SLA_BREACHED', async (evt: any) => {
+    await dispatchNotification({
+      input: {
+        type: 'escalation',
+        reportId: evt.complaintId,
+        departmentId: evt.departmentId,
+        escalationLevel: evt.payload.escalationLevel || 1,
+        targetUserRole: evt.payload.escalationLevel === 2 ? 'admin' : 'department_head',
+        reportTitle: evt.payload.title,
+      },
+      sendSms: true,
+    });
+  });
+
+  eventBus.subscribe('WORKER_ASSIGNED', async (evt: any) => {
+    await dispatchNotification({
+      input: {
+        type: 'status_update',
+        reportId: evt.complaintId,
+        departmentId: evt.departmentId,
+        targetUserId: evt.payload.assignedWorkerId,
+        targetUserRole: 'worker',
+        reportTitle: evt.payload.title,
+        customDetails: `Assigned task: ${evt.payload.title}`,
+      },
+    });
+  });
+
+  eventBus.subscribe('REWORK_REQUESTED', async (evt: any) => {
+    await dispatchNotification({
+      input: {
+        type: 'status_update',
+        reportId: evt.complaintId,
+        departmentId: evt.departmentId,
+        targetUserId: evt.payload.assignedWorkerId,
+        targetUserRole: 'worker',
+        reportTitle: evt.payload.title,
+        customDetails: `Evidence rejected. Rework required: ${evt.payload.reworkInstructions || 'Upload valid photo'}`,
+      },
+    });
+  });
+
+  eventBus.subscribe('COMPLAINT_RESOLVED', async (evt: any) => {
+    await dispatchNotification({
+      input: {
+        type: 'status_update',
+        reportId: evt.complaintId,
+        targetUserId: evt.payload.userId,
+        targetUserRole: 'citizen',
+        reportTitle: evt.payload.title,
+        customDetails: 'Your complaint has been successfully resolved by PMC.',
+      },
+    });
+  });
 }

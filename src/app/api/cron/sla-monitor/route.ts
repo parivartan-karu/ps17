@@ -101,11 +101,60 @@ export async function handleSlaMonitor(request: NextRequest) {
       const departmentId = report.departmentId || report.department;
       const target = getSlaTargets(priority, departmentId, slaConfig);
 
+      // ── RESPONSE SLA MONITORING (Task 03) ──────────────────────────────────
+      if (['Submitted', 'Under Verification'].includes(report.status) && report.slaResponseDeadline) {
+        const respDeadlineMs = new Date(report.slaResponseDeadline).getTime();
+        if (!isNaN(respDeadlineMs) && nowMs >= respDeadlineMs && !report.responseSlaBreached) {
+          const respActionLog = {
+            status: report.status,
+            timestamp: nowIso,
+            actor: 'System' as const,
+            actorName: 'SLA Automation Monitor',
+            notes: `🚨 Response SLA Breached! Complaint unacknowledged past ${target.responseHours}h limit. Escalated to Department Head.`,
+          };
+
+          await firestore.runTransaction(async (transaction: any) => {
+            const ref = firestore.collection('reports').doc(report.id);
+            const currentDoc = await transaction.get(ref);
+            if (!currentDoc.exists) return;
+
+            const data = currentDoc.data() as Report;
+            const existingLogs = data.actionLog || [];
+
+            transaction.update(ref, {
+              responseSlaBreached: true,
+              escalationLevel: Math.max(1, data.escalationLevel ?? 0),
+              escalatedTo: `${data.department || 'Department'} Head`,
+              lastEscalatedAt: nowIso,
+              actionLog: [...existingLogs, respActionLog],
+            });
+          });
+
+          await dispatchNotification({
+            input: {
+              type: 'escalation',
+              reportId: report.id,
+              reportTitle: report.description,
+              category: report.category,
+              departmentId: report.departmentId,
+              departmentName: report.department,
+              priority: report.priority,
+              escalationLevel: 1,
+              targetUserRole: 'department_head',
+              customDetails: `Response SLA Breached (${target.responseHours}h acknowledgement limit exceeded)`,
+            },
+            sendSms: true,
+          });
+
+          escalationsProcessed++;
+        }
+      }
+
       const reminderHours = target.reminderBeforeBreachHours || 4;
       const reminderMs = reminderHours * 3600 * 1000;
       const reminderThresholdMs = deadlineMs - reminderMs;
 
-      // ── CASE A: SLA BREACHED (now >= deadlineMs) ──────────────────────────
+      // ── RESOLUTION SLA BREACHED (now >= deadlineMs) ──────────────────────────
       if (nowMs >= deadlineMs) {
         const currentLevel = report.escalationLevel ?? 0;
         const hoursPastDeadline = (nowMs - deadlineMs) / (3600 * 1000);
@@ -125,7 +174,7 @@ export async function handleSlaMonitor(request: NextRequest) {
         const newEscalationLevel = report.slaBreached ? Math.max(currentLevel + 1, targetLevel) : 1;
         const escalatedToTitle = newEscalationLevel === 1
           ? `${report.department || 'Department'} Head`
-          : 'Municipal Commissioner / SMC Administration';
+          : 'Municipal Commissioner / PMC Administration';
 
         const newEscalationEvent = {
           id: `esc_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,

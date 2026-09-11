@@ -61,7 +61,7 @@ export default function WorkerNotificationsPage() {
             <Bell className="h-6 w-6" />
             <div>
               <h1 className="text-lg font-bold">Notifications</h1>
-              <p className="text-sm opacity-90">Updates from SMC</p>
+              <p className="text-sm opacity-90">Updates from PMC</p>
             </div>
           </div>
           <Button
@@ -163,7 +163,7 @@ export default function WorkerNotificationsPage() {
               <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="font-semibold mb-2">No Notifications</h3>
               <p className="text-sm text-muted-foreground">
-                You'll see updates from SMC here.
+                You'll see updates from PMC here.
               </p>
             </CardContent>
           </Card>

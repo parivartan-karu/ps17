@@ -225,7 +225,7 @@ export function SmcCentralOverrideDialog({
                 Immediate Escalation Trigger
               </p>
               <p className="mt-1">
-                Will advance current escalation level to Level {(report.escalationLevel ?? 0) + 1} and alert SMC leadership.
+                Will advance current escalation level to Level {(report.escalationLevel ?? 0) + 1} and alert PMC leadership.
               </p>
             </div>
           )}

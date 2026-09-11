@@ -22,7 +22,7 @@ export default function AboutSMCPage() {
           <p>
             The Pune Municipal Corporation (PMC) is the governing body of the city of Pune in the Indian state of Maharashtra.
             It is responsible for the civic infrastructure and administration of the city. Established to provide essential
-            services and to ensure the orderly development of the city, the SMC is committed to enhancing the quality of
+            services and to ensure the orderly development of the city, the PMC is committed to enhancing the quality of
             life for all its citizens.
           </p>
           <h2 className="text-xl font-semibold text-foreground pt-4">Our Mission</h2>

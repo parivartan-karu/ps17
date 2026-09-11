@@ -1,0 +1,635 @@
+Absolutely. Here is the **concise implementation backlog**. Each issue is written so you can directly turn it into a development task.
+
+# PS17 Gap Fix Task List
+
+## P0: Critical fixes
+
+### TASK 01 — Unify PMC/SMC naming
+
+**Issue:** Project uses both PMC and SMC terminology.
+
+**Fix:**
+
+* Search entire frontend/backend for `SMC`, `smc`, `PMC`.
+* Standardize to **Pune Municipal Corporation (PMC)**.
+* Update UI, notifications, API responses, seed data and documentation.
+
+**Done when:** No incorrect SMC references remain.
+
+---
+
+### TASK 02 — Single source of truth for SLA
+
+**Issue:** SLA values shown in UI don't always match values used by the SLA engine.
+
+**Fix:**
+
+* Create one SLA configuration.
+* Make dashboard/public SLA page read from it.
+* Make `calculateSlaDeadlines()` use the same configuration.
+* Remove hardcoded duplicate SLA tables.
+
+**Done when:** Every ticket's displayed SLA exactly matches the engine.
+
+---
+
+### TASK 03 — Monitor Response SLA separately
+
+**Issue:** Resolution SLA is monitored, but response SLA needs independent monitoring.
+
+**Fix:**
+Implement:
+
+```text
+Response SLA
+→ 50% warning
+→ 80% warning
+→ breach
+→ L1 escalation
+```
+
+and separately:
+
+```text
+Resolution SLA
+→ 80% warning
+→ breach
+→ L1/L2 escalation
+```
+
+**Done when:** An unacknowledged complaint can independently trigger escalation.
+
+---
+
+### TASK 04 — Make status transitions authoritative
+
+**Issue:** Different modules/routes can modify complaint status, creating inconsistent workflows.
+
+**Fix:**
+Create one server-side status transition service:
+
+```text
+validateTransition()
+→ permission check
+→ required data check
+→ update status
+→ create event
+→ notify relevant users
+```
+
+**Done when:** Every status change goes through the same workflow.
+
+---
+
+### TASK 05 — Fix escalation recipient logic
+
+**Issue:** L1/L2 escalation can use generic roles without consistently resolving the actual responsible person.
+
+**Fix:**
+
+```text
+L1 → Department Head of assigned department
+L2 → Municipal Official / Administration
+```
+
+Resolve the actual user before sending notification.
+
+**Done when:** Every escalation has a clear recipient.
+
+---
+
+# P1: Workflow intelligence
+
+### TASK 06 — Create shared `ComplaintContext`
+
+**Issue:** Agents mostly pass isolated outputs instead of maintaining one evolving case context.
+
+**Fix:**
+Create a shared object containing:
+
+```text
+complaint
+classification
+routing
+priority
+duplicate
+assignment
+SLA
+escalation
+communication
+audit
+```
+
+Each agent reads previous decisions and adds its own result.
+
+**Done when:** All agents operate on the same case context.
+
+---
+
+### TASK 07 — Improve duplicate detection
+
+**Issue:** Dedup currently relies too heavily on a small recent-report candidate set.
+
+**Fix:**
+
+```text
+New complaint
+→ same ward
+→ nearby radius
+→ active complaints
+→ compatible category
+→ text similarity
+→ Dedup Agent
+```
+
+**Done when:** Old but nearby active incidents can also be detected.
+
+---
+
+### TASK 08 — Automatically link duplicate complaints
+
+**Issue:** Duplicate detection exists, but duplicate complaints should become part of the existing master incident workflow.
+
+**Fix:**
+
+```text
+Complaint A
+→ Incident #100
+
+Complaint B
+→ Dedup
+→ 91% similarity
+→ link to Incident #100
+→ don't create another field task
+```
+
+Citizen B should still receive status updates.
+
+**Done when:** One physical issue can have multiple citizen reports but one operational task.
+
+---
+
+### TASK 09 — Add Risk Score to Priority Agent
+
+**Issue:** Priority relies too much on individual keywords.
+
+**Fix:**
+Calculate:
+
+```text
+Severity
++ Public Safety
++ Location impact
++ Traffic impact
++ Duplicate density
++ Time sensitivity
++ Evidence
+```
+
+Output:
+
+```text
+Risk Score: 87/100
+Priority: Critical
+Reason: ...
+```
+
+**Done when:** Priority has a numerical, explainable reason.
+
+---
+
+### TASK 10 — Add Confidence Gate
+
+**Issue:** Low-confidence AI decisions can automatically enter the workflow.
+
+**Fix:**
+
+```text
+>= 85% → automatic workflow
+
+65–84% → department verification
+
+< 65% → manual review
+```
+
+Critical safety complaints can bypass normal routing and receive immediate handling.
+
+**Done when:** AI knows when it should and shouldn't act automatically.
+
+---
+
+# P1: Multi-department capability
+
+### TASK 11 — Add Coordination Agent
+
+**Issue:** Current routing primarily chooses one department.
+
+**Fix:**
+Coordination Agent determines:
+
+```text
+Primary Department
+Supporting Departments
+Responsibilities
+Dependencies
+```
+
+Example:
+
+```text
+Water Supply → stop leak
+Engineering → repair road
+Traffic → manage intersection
+```
+
+**Done when:** One incident can create coordinated tasks across departments.
+
+---
+
+### TASK 12 — Introduce department tasks
+
+**Issue:** Multi-department incidents need separate actionable work items.
+
+**Fix:**
+
+```text
+Incident #1042
+│
+├── Task → Water Supply
+├── Task → Engineering
+└── Task → Traffic
+```
+
+Each task has:
+
+```text
+owner
+status
+SLA
+deadline
+dependency
+completion evidence
+```
+
+**Done when:** Departments work on their own tasks under one incident.
+
+---
+
+### TASK 13 — Dependency-aware resolution
+
+**Issue:** Incident should not be resolved while required department tasks remain incomplete.
+
+**Fix:**
+
+```text
+Task A complete
+      ↓
+Task B unlocked
+      ↓
+Task C complete
+      ↓
+Incident eligible for resolution
+```
+
+**Done when:** Resolution depends on required tasks, not just one status update.
+
+---
+
+# P1: Resolution verification
+
+### TASK 14 — Add Evidence Verification Agent
+
+**Issue:** Worker can submit completion evidence, but verification should be more intelligent.
+
+**Fix:**
+
+```text
+Original complaint
++ before evidence
++ after evidence
++ expected repair
+        ↓
+Evidence Agent
+        ↓
+PASS / FAIL / NEED REVIEW
+```
+
+Output:
+
+```text
+Verification Score: 92%
+Reason: ...
+```
+
+**Done when:** Evidence influences whether a complaint can be resolved.
+
+---
+
+### TASK 15 — Add rework workflow
+
+**Issue:** Failed resolution should have an explicit workflow.
+
+**Fix:**
+
+```text
+Worker completes
+→ Evidence verification FAIL
+→ Rework requested
+→ Worker notified
+→ Work again
+→ Evidence submitted
+```
+
+**Done when:** Failed verification does not simply become `Resolved`.
+
+---
+
+# P1: Communication architecture
+
+### TASK 16 — Centralize workflow events
+
+**Issue:** Notifications are triggered independently by different APIs.
+
+**Fix:**
+Create central events:
+
+```text
+COMPLAINT_CREATED
+AI_TRIAGED
+DEPARTMENT_ASSIGNED
+WORKER_ASSIGNED
+WORK_STARTED
+WORK_COMPLETED
+EVIDENCE_SUBMITTED
+RESOLVED
+
+SLA_WARNING
+SLA_BREACHED
+ESCALATED
+
+DUPLICATE_DETECTED
+INCIDENT_LINKED
+MANUAL_OVERRIDE
+```
+
+**Done when:** Important actions create standardized events.
+
+---
+
+### TASK 17 — Central Communication Agent
+
+**Issue:** Each module shouldn't decide independently who receives notifications.
+
+**Fix:**
+
+```text
+Event
+ ↓
+Communication Agent
+ ↓
+Audience Resolver
+ ↓
+Channel
+ ↓
+Notification
+```
+
+Example:
+
+```text
+SLA breach
+→ Worker
+→ Department Head
+→ Admin
+→ Citizen
+```
+
+with different messages for each.
+
+**Done when:** Notifications are event-driven and audience-aware.
+
+---
+
+# P2: Explainability / UX
+
+### TASK 18 — Agent Decision Timeline
+
+**Issue:** AI decisions aren't sufficiently visible as one connected story.
+
+**Fix:**
+Add:
+
+```text
+09:31 Intake Agent
+09:31 Classification Agent
+09:32 Routing Agent
+09:32 Priority Agent
+09:32 Dedup Agent
+09:33 Assignment Agent
+```
+
+Each shows:
+
+```text
+Decision
+Confidence
+Reason
+```
+
+**Done when:** Judge can understand exactly how the system reached a decision.
+
+---
+
+### TASK 19 — Explain worker assignment
+
+**Issue:** Assignment happens, but reasoning should be visible.
+
+**Fix:**
+
+```text
+Worker: Rahul Patil
+
+Assignment Score: 91/100
+
+✓ Correct department
+✓ Required skill
+✓ Available
+✓ Low workload
+✓ 1.8 km away
+```
+
+---
+
+### TASK 20 — Add "Next Best Action"
+
+**Issue:** System currently detects problems but doesn't always recommend the next operational action.
+
+**Fix:**
+
+```text
+SLA at risk
+→ Recommend reassignment
+
+Duplicate detected
+→ Recommend incident linking
+
+Evidence failed
+→ Recommend rework
+
+Multi-department conflict
+→ Recommend escalation
+```
+
+**Done when:** Every important exception has an actionable recommendation.
+
+---
+
+# P2: Admin Command Center
+
+### TASK 21 — Upgrade Admin Dashboard
+
+Replace generic statistics with operational information:
+
+```text
+Critical
+SLA at Risk
+Escalated
+Unassigned
+```
+
+Then:
+
+```text
+SLA Risk Queue
+Escalation Queue
+Department Workload
+Worker Workload
+Incident Clusters
+Live Map
+Agent Activity
+```
+
+---
+
+### TASK 22 — Incident Command View
+
+Create a single screen for one serious complaint:
+
+```text
+INCIDENT #1042
+Critical
+
+Classification
+Routing
+Risk
+Departments
+Tasks
+Workers
+SLA
+Escalation
+Evidence
+Agent Decisions
+Citizen Reports
+```
+
+**This should be your main judge demo screen.**
+
+---
+
+# P2: Demo hardening
+
+### TASK 23 — Seed 4 deterministic demo scenarios
+
+#### Demo A
+
+**Streetlight**
+
+```text
+Submit
+→ classify
+→ route
+→ assign
+→ resolve
+```
+
+#### Demo B
+
+**Pothole duplicate**
+
+```text
+Complaint 1
+→ Incident
+
+Complaint 2
+→ duplicate detected
+→ linked to same incident
+```
+
+#### Demo C
+
+**Overdue complaint**
+
+```text
+Complaint
+→ SLA warning
+→ SLA breach
+→ L1 escalation
+→ citizen notification
+```
+
+#### Demo D
+
+**Burst water pipe**
+
+```text
+Classification
+→ Critical
+→ Water Supply
+→ Engineering
+→ Traffic
+→ coordinated tasks
+→ evidence
+→ resolution
+```
+
+---
+
+# Final priority order
+
+If you're assigning these to your team, do them in this order:
+
+```text
+1.  PMC/SMC cleanup
+2.  SLA source unification
+3.  Response SLA monitoring
+4.  Authoritative status transitions
+5.  Escalation recipient fix
+6.  Shared ComplaintContext
+7.  Duplicate retrieval
+8.  Automatic incident linking
+9.  Risk-based priority
+10. Confidence gate
+
+11. Coordination Agent
+12. Department Tasks
+13. Task Dependencies
+14. Evidence Verification Agent
+15. Rework workflow
+
+16. Central Events
+17. Communication Agent
+18. Agent Decision Timeline
+19. Assignment explanation
+20. Next Best Action
+
+21. Command Center
+22. Incident Command View
+23. Demo seed scenarios
+24. Final testing + polish
+```
+
+### If time is very limited
+
+Do **1 → 10 → 11 → 12 → 16 → 18 → 21 → 23**.
+
+That gives you the biggest improvement in **correctness + uniqueness + judge impact** without rebuilding the project.

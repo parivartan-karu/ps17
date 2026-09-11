@@ -44,20 +44,20 @@ export default function TermsOfServicePage() {
 
           <h2 className="text-xl font-semibold text-foreground pt-4">4. Disclaimers</h2>
           <p>
-            The Service is provided on an "as is" and "as available" basis. SMC makes no warranty that the Service will meet
+            The Service is provided on an "as is" and "as available" basis. PMC makes no warranty that the Service will meet
             your requirements, be uninterrupted, timely, or error-free. While we strive to address all reports according
             to our SLA Policy, we do not guarantee resolution for every submitted issue.
           </p>
 
           <h2 className="text-xl font-semibold text-foreground pt-4">5. Limitation of Liability</h2>
           <p>
-            In no event shall SMC be liable for any direct, indirect, incidental, or consequential damages resulting from the
+            In no event shall PMC be liable for any direct, indirect, incidental, or consequential damages resulting from the
             use or inability to use the Service.
           </p>
 
           <h2 className="text-xl font-semibold text-foreground pt-4">6. Changes to Terms</h2>
           <p>
-            SMC reserves the right to modify these terms at any time. We will do so by posting the updated terms on the Service.
+            PMC reserves the right to modify these terms at any time. We will do so by posting the updated terms on the Service.
             Your decision to continue to visit and make use of the Service after such changes have been made constitutes
             your formal acceptance of the new Terms of Service.
           </p>

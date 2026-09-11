@@ -49,7 +49,7 @@ export default function PrivacyPolicyPage() {
           </ul>
 
           <h2 className="text-xl font-semibold text-foreground pt-4">Use of Data</h2>
-          <p>SMC uses the collected data for various purposes:</p>
+          <p>PMC uses the collected data for various purposes:</p>
           <ul className="list-disc pl-6 space-y-2">
             <li>To provide and maintain our Service</li>
             <li>To manage and resolve the civic issues you report</li>

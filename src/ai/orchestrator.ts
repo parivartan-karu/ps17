@@ -14,6 +14,9 @@ import {
 import { normalizeDepartment, type CanonicalDepartmentId } from '@/lib/departments';
 import type { Report, ActionLogEntry, IllegalDumpingData } from '@/lib/types';
 
+import { coordinationAgent, type CoordinationOutput } from './agents/coordination-agent';
+import type { DepartmentTask } from '@/lib/complaint-context';
+
 export type EligibleWorker = {
   id: string;
   name: string;
@@ -31,6 +34,7 @@ export type EligibleWorker = {
 };
 
 export type OrchestratorInput = {
+  complaintId?: string;
   description: string;
   location: string;
   roadName?: string;
@@ -49,12 +53,16 @@ export type TriageResult = {
   department: string;
   category: string;
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  riskScore: number;
+  riskScoreReasons: string[];
+  departmentTasks: DepartmentTask[];
 
   // Queue & Workflow metadata
   queueStatus: 'pending_department' | 'accepted_by_department' | 'assigned_worker' | 'in_progress' | 'completed';
   queuedAt: string;
   queuePosition: number;
   workflowStage: 'pending_admin' | 'pending_department' | 'assigned_worker' | 'in_progress' | 'completed';
+  routingGate: 'automatic' | 'department_verification' | 'manual_review';
 
   // Worker assignment
   assignedWorkerId: string | null;
@@ -77,7 +85,7 @@ export type TriageResult = {
   illegalDumping: IllegalDumpingData | null;
   complaintType: 'Standard' | 'Illegal Dumping';
 
-  // Audit receipts from all 5 agents
+  // Audit receipts from all agents
   agentLogs: AgentLogEntry[];
 
   // Raw AI analysis for backward compatibility
@@ -167,7 +175,7 @@ export function selectBestEligibleWorker(
 
 /**
  * Main Multi-Agent Pipeline Orchestrator (Phase 4)
- * Executes intake → classification → routing → priority → dedup safely with step-by-step validation.
+ * Executes intake → classification → routing → priority → dedup → coordination safely with step-by-step validation.
  */
 export async function runTriagePipeline(input: OrchestratorInput): Promise<TriageResult> {
   const pipelineStartTime = performance.now();
@@ -295,6 +303,8 @@ export async function runTriagePipeline(input: OrchestratorInput): Promise<Triag
     prioRes = {
       priority: 'Medium',
       confidence: 0.5,
+      riskScore: 50,
+      riskScoreReasons: ['Priority agent error; default applied.'],
       reasoning: 'Fallback priority.',
       receipt,
     };
@@ -337,29 +347,74 @@ export async function runTriagePipeline(input: OrchestratorInput): Promise<Triag
   }
 
   // ---------------------------------------------------------------------------
-  // Step 6: Confidence Evaluation & Queue Assignment Decision (Requirements 3, 6, 7)
+  // Step 6: Coordination Agent (Multi-Department Sub-Tasks)
+  // ---------------------------------------------------------------------------
+  let coordRes: CoordinationOutput;
+  try {
+    coordRes = await coordinationAgent({
+      complaintId: input.complaintId || `RPT-${Math.floor(Math.random() * 8999 + 1000)}`,
+      category: validatedCategory,
+      description: intakeRes.cleanedDescription,
+      primaryDepartmentId: validatedDepartmentId,
+      primaryDepartmentName: legacyDepartment,
+    });
+  } catch (err: any) {
+    console.warn('[Orchestrator] Coordination Agent failed, applying fallback:', err?.message);
+    coordRes = {
+      requiresMultiDepartment: false,
+      departmentTasks: [
+        {
+          id: `TASK-01`,
+          departmentId: validatedDepartmentId,
+          departmentName: legacyDepartment,
+          taskName: `Resolve ${validatedCategory} incident`,
+          status: 'In Progress',
+        },
+      ],
+      reasoning: 'Single department fallback task initialized.',
+      receipt: createAgentReceipt({
+        agent: 'coordination_agent',
+        status: 'fallback',
+        startTime: pipelineStartTime,
+        reasoning: 'Coordination agent error.',
+      }),
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Step 7: Confidence Evaluation & Routing Gate Decision
   // ---------------------------------------------------------------------------
   const overallConfidence = clampConfidence(
     (validatedClassConfidence + validatedRouteConfidence + validatedPrioConfidence) / 3,
     0.65
   );
 
-  const requiresManualReview =
-    overallConfidence < 0.6 || routeRes.routingPath === 'fallback_unassigned';
+  let routingGate: TriageResult['routingGate'] = 'automatic';
+  let workflowStage: TriageResult['workflowStage'] = 'pending_department';
+  let requiresManualReview = false;
+
+  if (overallConfidence >= 0.85) {
+    routingGate = 'automatic';
+    workflowStage = 'pending_department';
+  } else if (overallConfidence >= 0.65) {
+    routingGate = 'department_verification';
+    workflowStage = 'pending_department';
+  } else {
+    routingGate = 'manual_review';
+    workflowStage = 'pending_admin';
+    requiresManualReview = true;
+  }
 
   const routingStatus: TriageResult['routingStatus'] = requiresManualReview ? 'needs_review' : 'assigned';
 
-  // Auto-assignment policy decision:
-  // Auto assign permitted if:
-  // - Critical priority OR (High priority / Medium priority with confidence >= 0.75) AND NOT requiring manual review
+  // Auto-assignment policy decision
   const autoAssignEligible =
-    !requiresManualReview &&
+    routingGate === 'automatic' &&
     (validatedPriority === 'Critical' || (overallConfidence >= 0.75 && validatedPriority !== 'Low'));
 
   let assignedWorkerId: string | null = null;
   let assignedContractor: string | null = null;
   let queueStatus: TriageResult['queueStatus'] = 'pending_department';
-  let workflowStage: TriageResult['workflowStage'] = 'pending_department';
 
   if (autoAssignEligible && input.availableWorkers && input.availableWorkers.length > 0) {
     const selectedWorker = selectBestEligibleWorker(validatedDepartmentId, input.availableWorkers, {
@@ -405,6 +460,7 @@ export async function runTriagePipeline(input: OrchestratorInput): Promise<Triag
     routeRes.receipt,
     prioRes.receipt,
     dedupRes.receipt,
+    coordRes.receipt,
   ];
 
   return {
@@ -412,10 +468,14 @@ export async function runTriagePipeline(input: OrchestratorInput): Promise<Triag
     department: legacyDepartment,
     category: validatedCategory,
     priority: validatedPriority,
+    riskScore: prioRes.riskScore,
+    riskScoreReasons: prioRes.riskScoreReasons,
+    departmentTasks: coordRes.departmentTasks,
     queueStatus,
     queuedAt,
     queuePosition,
     workflowStage,
+    routingGate,
     assignedWorkerId,
     assignedContractor,
     autoAssignEligible,

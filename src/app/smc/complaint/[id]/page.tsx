@@ -37,6 +37,7 @@ import { buildAuthHeaders } from '@/lib/client-auth';
 import { departmentConfig, departments } from '@/lib/constants';
 import { SmcCentralOverrideDialog } from '@/components/smc-central-override-dialog';
 import { AgentPipelineVisualization } from '@/components/agent-pipeline-visualization';
+import { NextBestActionBanner } from '@/components/next-best-action-banner';
 
 
 const statusColors: { [key: string]: string } = {
@@ -653,6 +654,9 @@ export default function SmcComplaintDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Next Best Action Operational Guidance */}
+        <NextBestActionBanner report={report} />
 
         {/* Multi-Agent Pipeline Visualization */}
         <AgentPipelineVisualization report={report} isAdminView={true} />

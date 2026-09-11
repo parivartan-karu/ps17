@@ -3,6 +3,7 @@
  * Enforces valid report status transitions and protects terminal states server-side.
  */
 
+import type { DepartmentTask } from './complaint-context';
 import type { ReportStatus } from './types';
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<ReportStatus, ReportStatus[]> = {
@@ -22,11 +23,12 @@ export type TransitionValidationResult = {
 
 /**
  * Validates a proposed status transition for a report.
- * Returns valid: false with descriptive reason if invalid or terminal state violation.
+ * Supports dependency-aware resolution gating when departmentTasks are present.
  */
 export function validateStatusTransition(
   currentStatus: ReportStatus | string | undefined | null,
-  targetStatus: ReportStatus | string
+  targetStatus: ReportStatus | string,
+  departmentTasks?: DepartmentTask[]
 ): TransitionValidationResult {
   const current = (currentStatus || 'Submitted') as ReportStatus;
   const target = targetStatus as ReportStatus;
@@ -56,6 +58,19 @@ export function validateStatusTransition(
     };
   }
 
+  // Dependency-aware resolution gating: Cannot resolve if department tasks remain uncompleted
+  if (target === 'Resolved' && departmentTasks && departmentTasks.length > 0) {
+    const uncompleted = departmentTasks.filter((t) => t.status !== 'Completed');
+    if (uncompleted.length > 0) {
+      const names = uncompleted.map((t) => `"${t.taskName}" (${t.departmentName})`).join(', ');
+      return {
+        valid: false,
+        isTerminal: false,
+        reason: `Cannot resolve incident while multi-department sub-tasks remain uncompleted: ${names}.`,
+      };
+    }
+  }
+
   return { valid: true };
 }
 
@@ -64,9 +79,10 @@ export function validateStatusTransition(
  */
 export function assertValidStatusTransition(
   currentStatus: ReportStatus | string | undefined | null,
-  targetStatus: ReportStatus | string
+  targetStatus: ReportStatus | string,
+  departmentTasks?: DepartmentTask[]
 ): void {
-  const result = validateStatusTransition(currentStatus, targetStatus);
+  const result = validateStatusTransition(currentStatus, targetStatus, departmentTasks);
   if (!result.valid) {
     throw new Error(result.reason || 'Invalid status transition.');
   }
