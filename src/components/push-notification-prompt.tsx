@@ -75,13 +75,13 @@ export function PushNotificationPrompt() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
+        className="fixed inset-0 z-[99990] bg-black/40 backdrop-blur-md"
         onClick={handleDismiss}
       />
 
       {/* Bottom sheet */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom-4 duration-300">
-        <div className="mx-auto max-w-lg rounded-t-3xl bg-white shadow-2xl">
+      <div className="fixed bottom-0 left-0 right-0 z-[99999] animate-in slide-in-from-bottom-4 duration-300">
+        <div className="mx-auto max-w-lg rounded-t-3xl bg-white dark:bg-slate-900 shadow-2xl border-t border-gray-100 dark:border-slate-800">
           {/* Handle */}
           <div className="flex justify-center pt-3">
             <div className="h-1 w-10 rounded-full bg-gray-200" />

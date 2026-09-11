@@ -176,8 +176,8 @@ export default function RegisterServiceModal({ onClose, onSubmitted }: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm p-0 sm:p-4">
-      <div className="w-full sm:max-w-md bg-white dark:bg-slate-950 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[92dvh] flex flex-col">
+    <div className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4">
+      <div className="w-full sm:max-w-md bg-white dark:bg-slate-950 rounded-t-2xl sm:rounded-2xl shadow-2xl max-h-[90dvh] flex flex-col overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
@@ -208,18 +208,19 @@ export default function RegisterServiceModal({ onClose, onSubmitted }: Props) {
 
         {/* ── Camera ── */}
         {!done && showCamera && (
-          <div className="flex-1 flex flex-col items-center gap-3 p-4 bg-black">
-            <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-xl object-cover max-h-64" />
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-4 pb-6 bg-black text-white min-h-[320px]">
+            <video ref={videoRef} autoPlay muted playsInline className="w-full rounded-xl object-cover max-h-72 border border-slate-800" />
             <canvas ref={canvasRef} className="hidden" />
-            <div className="flex gap-3">
+            <div className="flex items-center gap-3 w-full justify-center pt-2">
               <Button
+                type="button"
                 onClick={capturePhoto}
                 disabled={!cameraReady}
-                className="bg-white text-slate-900 hover:bg-slate-100 rounded-full px-6"
+                className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold rounded-full px-8 py-3 shadow-lg"
               >
-                <Camera className="mr-2 h-4 w-4" /> Capture
+                <Camera className="mr-2 h-5 w-5" /> Capture Photo
               </Button>
-              <Button variant="ghost" onClick={stopCamera} className="text-white hover:bg-white/10 rounded-full">
+              <Button type="button" variant="ghost" onClick={stopCamera} className="text-slate-300 hover:bg-white/10 hover:text-white rounded-full">
                 Cancel
               </Button>
             </div>
@@ -228,7 +229,7 @@ export default function RegisterServiceModal({ onClose, onSubmitted }: Props) {
 
         {/* ── Form ── */}
         {!done && !showCamera && (
-          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+          <div className="flex-1 overflow-y-auto p-4 pb-6 space-y-5">
 
             {/* Photo */}
             <div className="space-y-1.5">
@@ -332,11 +333,11 @@ export default function RegisterServiceModal({ onClose, onSubmitted }: Props) {
 
         {/* Footer */}
         {!done && !showCamera && (
-          <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+          <div className="px-4 py-3 pb-6 border-t border-slate-100 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-950 rounded-b-2xl">
             <Button
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm disabled:opacity-50"
+              className="w-full h-12 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm shadow-md disabled:opacity-50"
             >
               {submitting
                 ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Submitting…</>

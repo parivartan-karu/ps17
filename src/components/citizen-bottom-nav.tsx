@@ -17,7 +17,7 @@ export default function CitizenBottomNav() {
   const pathname = usePathname();
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-[9999] pointer-events-none flex justify-center pb-0 md:pb-4 px-0 md:px-4">
+    <div className="fixed bottom-0 inset-x-0 z-[2000] pointer-events-none flex justify-center pb-0 md:pb-4 px-0 md:px-4">
       <div className="pointer-events-auto w-full md:max-w-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border-t md:border border-gray-200/80 dark:border-slate-800/80 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] dark:shadow-slate-950/50 rounded-t-2xl md:rounded-full transition-all duration-300">
         <div className="flex h-16 items-center justify-between px-3 max-w-md mx-auto">
           {bottomNavItems.map((item) => {

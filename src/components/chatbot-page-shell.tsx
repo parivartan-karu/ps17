@@ -4,24 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Send, Bot, User, Loader2, Trash2, X } from 'lucide-react';
+import { Send, Bot, User, Loader2, Trash2, X, Sparkles } from 'lucide-react';
 import { chatbotFlow } from '@/ai/flows/chatbot-flow';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 
-const quickQuestions = [
-  'How to report an issue?',
-  'Track my complaint',
-  'What issues can I report?',
-  'How are points earned?',
-  'Contact municipality',
-];
-
 type Message = {
   role: 'user' | 'model';
   content: string;
   timestamp?: string;
+  suggestions?: string[];
 };
 
 const STORAGE_KEY = 'parivartan_chat_history';
@@ -54,6 +47,12 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
         role: 'model',
         content: 'Hello! I am Roadie, your Parivartan Assistant. I can help you report problems and track complaints.',
         timestamp: new Date().toISOString(),
+        suggestions: [
+          'How do I report a problem?',
+          'How can I track my reports?',
+          'What problems can I report?',
+          'How do I contact support?',
+        ],
       },
     ]);
   }, []);
@@ -89,6 +88,7 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
         role: 'model',
         content: result.response,
         timestamp: new Date().toISOString(),
+        suggestions: result.suggestions,
       };
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
@@ -114,6 +114,12 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
         role: 'model',
         content: 'Hello! I am Roadie, your Parivartan Assistant. How can I help you today?',
         timestamp: new Date().toISOString(),
+        suggestions: [
+          'How do I report a problem?',
+          'How can I track my reports?',
+          'What problems can I report?',
+          'How do I contact support?',
+        ],
       },
     ]);
   };
@@ -127,9 +133,7 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
     });
   };
 
-  const shellClasses = compact
-    ? 'flex h-full flex-col overflow-hidden bg-background text-foreground'
-    : 'flex min-h-[calc(100vh-14rem)] flex-col bg-background text-foreground md:min-h-[calc(100vh-12rem)]';
+  const shellClasses = 'flex h-full flex-col overflow-hidden bg-background text-foreground';
 
   return (
     <div className={shellClasses}>
@@ -172,7 +176,7 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-slate-50 px-4 py-4 dark:bg-slate-900">
+      <div className="flex-1 min-h-0 overflow-y-auto bg-slate-50 px-4 py-4 dark:bg-slate-900">
         <div className="mx-auto flex max-w-3xl flex-col gap-4">
           {/* Full-page clear button */}
           {!compact && messages.length > 1 && (
@@ -222,6 +226,24 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
                     >
                       {msg.content}
                     </ReactMarkdown>
+
+                    {/* Contextual Suggestion Chips directly below bot response */}
+                    {msg.suggestions && msg.suggestions.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        {msg.suggestions.map((suggestion) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => handleSend(suggestion)}
+                            disabled={isLoading}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200/80 bg-emerald-50/70 px-3 py-1 text-xs font-medium text-emerald-800 transition-all hover:bg-emerald-100 hover:border-emerald-300 active:scale-95 disabled:opacity-50 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-300 dark:hover:bg-emerald-900/70"
+                          >
+                            <Sparkles className="h-3 w-3 text-emerald-500 shrink-0" />
+                            <span>{suggestion}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
@@ -264,44 +286,27 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
         </div>
       </div>
 
-      <div className="border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
-        <div className="mx-auto flex max-w-3xl flex-col gap-3">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-            {quickQuestions.map((question) => (
-              <Button
-                key={question}
-                variant="outline"
-                size="sm"
-                onClick={() => handleSend(question)}
-                disabled={isLoading}
-                className="flex-shrink-0 rounded-full border-slate-200 bg-slate-50 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                {question}
-              </Button>
-            ))}
+      <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950 shadow-md z-10">
+        <div className="mx-auto flex max-w-3xl items-center gap-2">
+          <div className="relative flex-1">
+            <Input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSend()}
+              placeholder="Type your message..."
+              disabled={isLoading}
+              className="h-11 rounded-full border-slate-200 bg-slate-100/90 dark:bg-slate-900/90 pl-4 pr-4 text-slate-900 placeholder:text-slate-400 focus-visible:ring-emerald-500 dark:border-slate-700 dark:text-slate-100 dark:placeholder:text-slate-500"
+            />
           </div>
-
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                ref={inputRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !isLoading && handleSend()}
-                placeholder="Type your message..."
-                disabled={isLoading}
-                className="h-12 rounded-full border-slate-200 bg-white pl-4 pr-4 text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:ring-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
-              />
-            </div>
-            <Button
-              onClick={() => handleSend()}
-              disabled={isLoading || !input.trim()}
-              className="h-12 w-12 rounded-full bg-slate-900 text-white shadow-lg hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
-            >
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-              <span className="sr-only">Send</span>
-            </Button>
-          </div>
+          <Button
+            onClick={() => handleSend()}
+            disabled={isLoading || !input.trim()}
+            className="h-11 w-11 rounded-full bg-emerald-600 text-white shadow-md hover:bg-emerald-700 disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+          >
+            {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            <span className="sr-only">Send</span>
+          </Button>
         </div>
       </div>
     </div>

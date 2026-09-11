@@ -17,7 +17,69 @@ const ChatbotInputSchema = z.object({
 
 const ChatbotOutputSchema = z.object({
     response: z.string(),
+    suggestions: z.array(z.string()).optional(),
 });
+
+function getSuggestionsForTopic(query: string, text: string): string[] {
+  const combined = (query + ' ' + text).toLowerCase();
+
+  if (combined.includes('pothole') || combined.includes('road') || combined.includes('surface')) {
+    return [
+      'How do I report a pothole?',
+      'How are priorities assigned?',
+      'What if the AI analysis is incorrect?',
+      'How can I track my reports?',
+    ];
+  }
+
+  if (combined.includes('garbage') || combined.includes('debris') || combined.includes('waste')) {
+    return [
+      'How do I report garbage and debris?',
+      'How can I track my reports?',
+      'What problems can I report?',
+    ];
+  }
+
+  if (combined.includes('street') || combined.includes('light') || combined.includes('electric')) {
+    return [
+      'How do I report a streetlight problem?',
+      'How can I track my reports?',
+      'How do I contact support?',
+    ];
+  }
+
+  if (combined.includes('water') || combined.includes('drain')) {
+    return [
+      'How do I report water-logging and drainage issues?',
+      'How can I track my reports?',
+      'How are priorities assigned?',
+    ];
+  }
+
+  if (combined.includes('track') || combined.includes('status') || combined.includes('complaint') || combined.includes('report')) {
+    return [
+      'What do the different report statuses mean?',
+      'What should I do if my report is rejected?',
+      'How do I provide more details for my report?',
+      'How do I contact support?',
+    ];
+  }
+
+  if (combined.includes('point') || combined.includes('earn') || combined.includes('leaderboard')) {
+    return [
+      'Can I help fix issues in my area?',
+      'How do I report a problem?',
+      'How can I track my reports?',
+    ];
+  }
+
+  return [
+    'How do I report a problem?',
+    'How can I track my reports?',
+    'What problems can I report?',
+    'How do I contact support?',
+  ];
+}
 
 const quickAnswers: Record<string, string> = {
     'How do I report a problem?': `Go to "Report a Problem", use the camera to capture a clear photo, let AI auto-suggest the category, then submit. Your report gets a tracking ID.`,
@@ -64,14 +126,15 @@ export const chatbotFlow = ai.defineFlow(
 
     // Check for exact quick answer matches first
     if (lastUserMessageContent && quickAnswers[lastUserMessageContent]) {
-        return { response: quickAnswers[lastUserMessageContent] };
+        const resp = quickAnswers[lastUserMessageContent];
+        return { response: resp, suggestions: getSuggestionsForTopic(lastUserMessageContent, resp) };
     }
 
     // Try to find a close match in quickAnswers (case-insensitive)
     const lowerLastMessage = lastUserMessageContent.toLowerCase();
     for (const [question, answer] of Object.entries(quickAnswers)) {
       if (question.toLowerCase() === lowerLastMessage) {
-        return { response: answer };
+        return { response: answer, suggestions: getSuggestionsForTopic(lastUserMessageContent, answer) };
       }
     }
 
@@ -168,7 +231,8 @@ If a user asks something you don't know, say "I don't have detailed information 
         system: systemPrompt,
       });
       
-      return { response: llmResponse.text || "I'm sorry, I couldn't generate a response at this moment." };
+      const responseText = llmResponse.text || "I'm sorry, I couldn't generate a response at this moment.";
+      return { response: responseText, suggestions: getSuggestionsForTopic(lastUserMessageContent, responseText) };
     } catch (error: any) {
       // Handle quota and connection errors gracefully
       const errorMessage = String(error?.message || '');
@@ -193,7 +257,7 @@ For status updates, check "My Complaints" to track your reports.
 
 If you have specific questions, please try again in a moment, or explore these sections of the app for immediate help.`;
         
-        return { response: fallbackResponse };
+        return { response: fallbackResponse, suggestions: getSuggestionsForTopic(lastUserMessageContent, fallbackResponse) };
       }
       
       // For other errors, provide a helpful fallback
@@ -209,7 +273,8 @@ If you have specific questions, please try again in a moment, or explore these s
 
 Please try your question again, or explore the app's Help section for more information.`;
       
-      return { response: genericFallback };
+      return { response: genericFallback, suggestions: getSuggestionsForTopic(lastUserMessageContent, genericFallback) };
     }
   }
 );
+
