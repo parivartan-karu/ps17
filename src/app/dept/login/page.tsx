@@ -65,9 +65,9 @@ export default function DeptLoginPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg mb-4">
                 <Building2 className="h-8 w-8 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">Department Portal</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Admin Portal</h1>
               <p className="mt-1 text-sm text-gray-500 text-center">
-                Sign in as a department head or assigned officer
+                Sign in as a system administrator or head official
               </p>
             </div>
 
@@ -79,7 +79,7 @@ export default function DeptLoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="head@dept.pmc.gov.in"
+                    placeholder="admin@pmc.gov.in"
                     className="pl-10 h-11 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -118,11 +118,11 @@ export default function DeptLoginPage() {
 
             <div className="mt-6 rounded-xl bg-indigo-50 p-4 text-xs text-indigo-700">
               <p className="font-semibold mb-1">ℹ️ Access Info</p>
-              <p>This portal is restricted to PMC department heads and designated officers. Your account must be assigned <strong>department_head</strong> role by a system admin.</p>
+              <p>This portal is restricted to PMC system administrators and designated officers.</p>
             </div>
 
             <div className="mt-4 flex justify-center gap-4 text-xs text-gray-400">
-              <Link href="/smc/login" className="hover:text-indigo-600 transition-colors">Admin Portal</Link>
+              <Link href="/smc/login" className="hover:text-indigo-600 transition-colors">Garbage Dept Portal</Link>
               <span>·</span>
               <Link href="/citizen/login" className="hover:text-emerald-600 transition-colors">Citizen Portal</Link>
             </div>

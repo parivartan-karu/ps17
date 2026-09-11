@@ -47,12 +47,12 @@ export default function SmcLoginPage() {
           </div>
           <div>
             <p className="text-3xl font-black">Parivartan</p>
-            <p className="text-purple-300 text-sm">Admin Control Panel</p>
+            <p className="text-purple-300 text-sm">Garbage Dept Panel</p>
           </div>
         </div>
-        <h2 className="text-2xl font-bold mb-3">Pune Municipal Corporation<br />Officer Dashboard</h2>
+        <h2 className="text-2xl font-bold mb-3">Pune Municipal Corporation<br />Garbage Dept Dashboard</h2>
         <p className="text-purple-200 text-sm leading-relaxed mb-8">
-          Manage all civic complaints across Pune, assign field workers, send alerts, and track departmental SLAs.
+          Manage garbage complaints across Pune, assign sanitation field workers, send alerts, and track waste clearance.
         </p>
         <div className="space-y-3">
           {[
@@ -76,10 +76,10 @@ export default function SmcLoginPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-700">
               <ShieldCheck className="h-5 w-5 text-white" />
             </div>
-            <p className="text-xl font-black text-gray-900">Parivartan Admin</p>
+            <p className="text-xl font-black text-gray-900">Parivartan Garbage Dept</p>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Officer Sign In</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">Garbage Dept Sign In</h1>
           <p className="text-sm text-gray-500 mb-8">Restricted — authorised PMC officials only.</p>
 
           <div className="rounded-2xl bg-white shadow-2xl overflow-hidden">
@@ -116,7 +116,7 @@ export default function SmcLoginPage() {
 
           <div className="mt-6 flex justify-center gap-4 text-xs text-gray-400">
             <Link href="/citizen/login" className="hover:text-emerald-600 transition-colors flex items-center gap-1">Citizen Portal <ArrowRight className="h-3 w-3" /></Link>
-            <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">Dept Portal <ArrowRight className="h-3 w-3" /></Link>
+            <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">Admin Portal <ArrowRight className="h-3 w-3" /></Link>
           </div>
         </div>
       </div>

@@ -190,11 +190,11 @@ export default function WorkerLoginPage() {
             </Link>
             <Link href="/dept/login"
               className="hover:text-indigo-600 transition-colors flex items-center gap-1">
-              Dept Portal <ArrowRight className="h-3 w-3" />
+              Admin Portal <ArrowRight className="h-3 w-3" />
             </Link>
             <Link href="/smc/login"
               className="hover:text-purple-600 transition-colors flex items-center gap-1">
-              SMC Admin <ArrowRight className="h-3 w-3" />
+              Garbage Dept <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
         </div>

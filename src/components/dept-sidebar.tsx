@@ -66,7 +66,7 @@ export function DeptSidebar() {
             </div>
             <div>
               <p className="font-bold text-sm">{dept}</p>
-              <p className="text-xs text-indigo-300">Dept Portal</p>
+              <p className="text-xs text-indigo-300">Admin Portal</p>
             </div>
           </div>
           {profile?.name && (

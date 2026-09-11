@@ -559,7 +559,7 @@ export default function LandingPage() {
                 Choose Your Role Portal
               </h2>
               <p className="text-slate-600 text-sm sm:text-base mt-3">
-                Dedicated digital interfaces tailored for citizens, maintenance field workers, PMC administrative officers, and department heads.
+                Dedicated digital interfaces tailored for citizens, maintenance field workers, garbage department officers, and administrators.
               </p>
             </div>
 
@@ -604,42 +604,42 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Portal 3: PMC Admin Officer Portal */}
+              {/* Portal 3: Garbage Dept Portal */}
               <div className="flex flex-col bg-white rounded-2xl border-2 border-blue-200 hover:border-blue-500 shadow-md hover:shadow-2xl transition-all duration-300 p-6 hover:-translate-y-1 group">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform mb-5">
                   <BarChart3 className="w-7 h-7" />
                 </div>
                 <div className="inline-block self-start text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 mb-2">
-                  Administration
+                  Sanitation & Garbage
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">PMC Admin Portal</h3>
-                <p className="text-xs text-slate-500 font-semibold mb-3">Ward Officers & Engineers</p>
+                <h3 className="text-xl font-bold text-slate-900">Garbage Dept Portal</h3>
+                <p className="text-xs text-slate-500 font-semibold mb-3">Sanitation Officers & Crew</p>
                 <p className="text-xs text-slate-600 leading-relaxed flex-1">
-                  Verify grievance severity, assign maintenance contractors, monitor ward-level GIS heatmaps, and approve verified task closures.
+                  Verify garbage complaints, manage collection teams, monitor ward heatmaps, and approve garbage clearance tasks.
                 </p>
                 <div className="mt-6 pt-4 border-t border-slate-100 space-y-2">
                   <Button asChild className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold h-11 rounded-xl shadow-md">
-                    <Link href="/smc/login">Admin Officer Login</Link>
+                    <Link href="/smc/login">Garbage Dept Login</Link>
                   </Button>
                 </div>
               </div>
 
-              {/* Portal 4: Department Head Portal */}
+              {/* Portal 4: Admin Portal */}
               <div className="flex flex-col bg-white rounded-2xl border-2 border-purple-200 hover:border-purple-500 shadow-md hover:shadow-2xl transition-all duration-300 p-6 hover:-translate-y-1 group">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform mb-5">
                   <Building2 className="w-7 h-7" />
                 </div>
                 <div className="inline-block self-start text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 mb-2">
-                  Executive Oversight
+                  Administration
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">Dept Head Portal</h3>
-                <p className="text-xs text-slate-500 font-semibold mb-3">Department Leadership</p>
+                <h3 className="text-xl font-bold text-slate-900">Admin Portal</h3>
+                <p className="text-xs text-slate-500 font-semibold mb-3">System Administrators</p>
                 <p className="text-xs text-slate-600 leading-relaxed flex-1">
-                  Monitor department-wide SLA compliance rates, track automated escalation triggers, inspect contractor quality, and review analytics.
+                  Monitor city-wide SLA compliance rates, track automated escalation triggers, inspect contractor quality, and review analytics.
                 </p>
                 <div className="mt-6 pt-4 border-t border-slate-100 space-y-2">
                   <Button asChild className="w-full bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-700 hover:to-indigo-800 text-white font-bold h-11 rounded-xl shadow-md">
-                    <Link href="/dept/login">Dept Head Login</Link>
+                    <Link href="/dept/login">Admin Login</Link>
                   </Button>
                 </div>
               </div>
@@ -801,12 +801,12 @@ export default function LandingPage() {
                 </li>
                 <li>
                   <Link href="/smc/login" className="hover:text-blue-400 transition-colors">
-                    Admin Officer Portal
+                    Garbage Dept Portal
                   </Link>
                 </li>
                 <li>
                   <Link href="/dept/login" className="hover:text-purple-400 transition-colors">
-                    Department Head Portal
+                    Admin Portal
                   </Link>
                 </li>
                 <li>

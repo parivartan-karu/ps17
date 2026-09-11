@@ -68,14 +68,14 @@ export default function SmcSidebar() {
             <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0">
               <Image
                 src="/logo.png"
-                alt="PMC Admin Logo"
+                alt="Garbage Dept Logo"
                 width={36}
                 height={36}
                 className="object-cover"
               />
             </div>
             <div className="flex flex-col">
-              <span className="text-[13px] font-bold tracking-tight">PMC Admin</span>
+              <span className="text-[13px] font-bold tracking-tight">Garbage Dept</span>
               <span className="text-xs text-muted-foreground">Control Panel</span>
             </div>
           </div>
@@ -90,8 +90,8 @@ export default function SmcSidebar() {
             <div className="flex items-center gap-2.5 rounded-lg bg-muted/50 p-2.5">
               <UserNav />
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium">Administrator</p>
-                <p className="text-xs text-muted-foreground">Manage system</p>
+                <p className="truncate text-sm font-medium">Garbage Officer</p>
+                <p className="text-xs text-muted-foreground">Manage sanitation</p>
               </div>
             </div>
             <Button 
@@ -121,14 +121,14 @@ export default function SmcSidebar() {
                 <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0">
                   <Image
                     src="/logo.png"
-                    alt="PMC Admin Logo"
+                    alt="Garbage Dept Logo"
                     width={36}
                     height={36}
                     className="object-cover"
                   />
                 </div>
                 <div className="flex flex-col items-start">
-                  <span className="text-[13px] font-bold">PMC Admin</span>
+                  <span className="text-[13px] font-bold">Garbage Dept</span>
                   <span className="text-xs text-muted-foreground font-normal">Control Panel</span>
                 </div>
               </SheetTitle>
@@ -153,13 +153,13 @@ export default function SmcSidebar() {
           <div className="relative h-8 w-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0">
             <Image
               src="/logo.png"
-              alt="PMC Admin Logo"
+              alt="Garbage Dept Logo"
               width={32}
               height={32}
               className="object-cover"
             />
           </div>
-          <span className="text-sm font-semibold">PMC Admin</span>
+          <span className="text-sm font-semibold">Garbage Dept</span>
         </div>
         
         <div className="flex items-center gap-2">
