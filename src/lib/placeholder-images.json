@@ -1,0 +1,40 @@
+{
+  "placeholderImages": [
+    {
+      "id": "hero-road",
+      "description": "A winding road at sunset, symbolizing the journey towards better infrastructure.",
+      "imageUrl": "https://images.unsplash.com/photo-1498637841888-108c6b723fcb?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHx3aW5kaW5nJTIwcm9hZHxlbnwwfHx8fDE3Njg0NzU1NTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "winding road"
+    },
+    {
+      "id": "pothole-1",
+      "description": "A large pothole on an urban street.",
+      "imageUrl": "https://images.unsplash.com/photo-1730674337922-0bf08006a66a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxwb3Rob2xlJTIwcm9hZHxlbnwwfHx8fDE3Njg0NTIwOTZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "pothole road"
+    },
+    {
+      "id": "crack-1",
+      "description": "Alligator cracking on an asphalt road.",
+      "imageUrl": "https://images.unsplash.com/photo-1764471444641-1d6e1da7798a?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjcmFja2VkJTIwYXNwaGFsdHxlbnwwfHx8fDE3Njg0OTEwNjl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "cracked asphalt"
+    },
+    {
+      "id": "waterlogging-1",
+      "description": "A street flooded with water after heavy rain.",
+      "imageUrl": "https://images.unsplash.com/photo-1545276070-ec815f01c6ec?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxmbG9vZGVkJTIwc3RyZWV0fGVufDB8fHx8MTc2ODM4ODM4MHww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "flooded street"
+    },
+    {
+      "id": "erosion-1",
+      "description": "Surface erosion on a rural road.",
+      "imageUrl": "https://images.unsplash.com/photo-1536677960880-dd6eb46cecba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxyb2FkJTIwZXJvc2lvbnxlbnwwfHx8fDE3Njg0OTEwNjl8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "road erosion"
+    },
+    {
+      "id": "map-placeholder",
+      "description": "A placeholder map showing a location pin.",
+      "imageUrl": "https://images.unsplash.com/photo-1446776899648-aa78eefe8ed0?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxjaXR5JTIwbWFwfGVufDB8fHx8MTc2ODQzMjI2Nnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "city map"
+    }
+  ]
+}

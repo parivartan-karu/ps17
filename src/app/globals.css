@@ -1,0 +1,221 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 220 15% 25%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 15% 25%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 15% 25%;
+
+    --primary: 142 76% 36%;
+    --primary-foreground: 142 20% 98%;
+
+    --secondary: 210 30% 94%;
+    --secondary-foreground: 220 15% 25%;
+
+    --muted: 210 30% 96%;
+    --muted-foreground: 210 10% 45%;
+    
+    --accent: 45 93% 47%;
+    --accent-foreground: 45 80% 5%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 142 76% 36%;
+
+    --radius: 0.5rem;
+
+    --chart-1: 142 76% 36%;
+    --chart-2: 45 93% 47%;
+    --chart-3: 210 50% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 65%;
+
+    --sidebar-background: 222 27% 12%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 142 66% 45%;
+    --sidebar-primary-foreground: 142 80% 5%;
+    --sidebar-accent: 217 20% 20%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 217 20% 25%;
+    --sidebar-ring: 142 66% 45%;
+  }
+
+  .dark {
+    --background: 222 27% 12%;
+    --foreground: 210 20% 90%;
+
+    --card: 222 27% 15%;
+    --card-foreground: 210 20% 90%;
+
+    --popover: 222 27% 15%;
+    --popover-foreground: 210 20% 90%;
+
+    --primary: 142 66% 45%;
+    --primary-foreground: 142 80% 5%;
+
+    --secondary: 217 20% 20%;
+    --secondary-foreground: 210 20% 90%;
+
+    --muted: 217 20% 20%;
+    --muted-foreground: 217 19% 56%;
+
+    --accent: 45 93% 55%;
+    --accent-foreground: 45 80% 5%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 217 20% 25%;
+    --input: 217 20% 25%;
+    --ring: 142 66% 45%;
+    
+    --sidebar-background: 222 27% 12%;
+    --sidebar-foreground: 210 20% 90%;
+    --sidebar-primary: 142 66% 45%;
+    --sidebar-primary-foreground: 142 80% 5%;
+    --sidebar-accent: 217 20% 20%;
+    --sidebar-accent-foreground: 210 20% 90%;
+    --sidebar-border: 217 20% 25%;
+    --sidebar-ring: 142 66% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-body;
+  }
+}
+
+h1, h2, h3, h4, h5, h6 {
+    @apply font-headline;
+}
+
+/* PWA-specific styles */
+
+/* Prevent pull-to-refresh in PWA mode */
+@media all and (display-mode: standalone) {
+  body {
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Safe area insets for notched devices */
+:root {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+}
+
+/* iOS PWA status bar spacing */
+@supports (padding: max(0px)) {
+  body {
+    padding-top: max(var(--safe-area-inset-top), 0px);
+    padding-left: max(var(--safe-area-inset-left), 0px);
+    padding-right: max(var(--safe-area-inset-right), 0px);
+    padding-bottom: max(var(--safe-area-inset-bottom), 0px);
+  }
+}
+
+/* Better tap targets for mobile */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Smooth scrolling for PWA */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Better focus indicators for accessibility */
+*:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Loading animation for PWA install */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.pwa-installing {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+/* Custom Google Translate integration: hide native UI chrome and prevent top-bar shifts. */
+.skiptranslate {
+  display: none !important;
+}
+
+.goog-te-banner-frame,
+.goog-te-gadget,
+.goog-te-gadget-simple,
+.goog-te-menu-frame,
+.goog-logo-link,
+.goog-te-balloon-frame,
+#goog-gt-tt {
+  display: none !important;
+}
+
+#google_translate_element {
+  position: fixed;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body {
+  top: 0 !important;
+}
+
+iframe.goog-te-banner-frame {
+  display: none !important;
+}
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
