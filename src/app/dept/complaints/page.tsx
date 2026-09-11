@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import { useToast } from '@/hooks/use-toast';
-import { normalizeDepartment, normalizeDepartmentId } from '@/lib/departments';
+import { normalizeDepartment, normalizeDepartmentId, isReportInDepartment } from '@/lib/departments';
 
 const statusColors: Record<string, string> = {
   Submitted: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -70,13 +70,21 @@ function DeptComplaintsContent() {
   const { data: rawWorkers } = useCollection<UserType>(workersQuery);
 
   const reports = useMemo(() => {
-    if (!rawReports || !userDeptId) return [];
-    return rawReports.filter(r => normalizeDepartmentId(r.departmentId || r.department) === userDeptId);
-  }, [rawReports, userDeptId]);
+    if (!rawReports) return [];
+    return rawReports.filter(r => {
+      if (isReportInDepartment(r, 'dept_sanitation')) return true;
+      const cat = (r.category || r.complaintType || '').toLowerCase();
+      const deptStr = (r.department || r.departmentId || '').toLowerCase();
+      const desc = (r.description || '').toLowerCase();
+      const garbageKw = ['garbage', 'bin', 'waste', 'dump', 'sanitation', 'cleanliness', 'litter', 'trash', 'drainage', 'debris'];
+      return garbageKw.some(kw => cat.includes(kw) || deptStr.includes(kw) || desc.includes(kw));
+    });
+  }, [rawReports]);
 
   const workers = useMemo(() => {
-    if (!rawWorkers || !userDeptId) return [];
-    return rawWorkers.filter(w => normalizeDepartmentId(w.departmentId || w.department) === userDeptId);
+    if (!rawWorkers) return [];
+    const targetDept = userDeptId || 'dept_sanitation';
+    return rawWorkers.filter(w => normalizeDepartmentId(w.departmentId || w.department) === targetDept);
   }, [rawWorkers, userDeptId]);
 
   const filtered = useMemo(() => {

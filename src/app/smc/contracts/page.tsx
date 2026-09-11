@@ -444,11 +444,12 @@ export default function SmcContractsPage() {
       }
 
       toast({
-        title: 'Worker added successfully',
+        title: '✅ Worker Account Created',
         description:
           data?.smsStatus === 'failed'
-            ? `Worker ID ${data.workerId} created, but SMS failed. Share credentials manually.`
-            : `Worker ID ${data.workerId} created and SMS sent with Worker ID and password.`,
+            ? `Worker ID: ${data.workerId} | Password: ${data.password} (Note: Twilio Trial restricts SMS to unverified numbers)`
+            : `Worker ID: ${data.workerId} | Password: ${data.password} (SMS sent)`,
+        duration: 10000,
       });
 
       setNewWorker({

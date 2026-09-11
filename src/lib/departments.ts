@@ -299,7 +299,7 @@ export function normalizeDepartment(input?: string | null): DepartmentDefinition
 
   const normalizedKey = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-  // 2. Match against canonical departments and all legacy aliases
+  // 2. Match against canonical departments, legacy aliases, supportedIssueTypes, and serviceCategories
   for (const dept of CANONICAL_DEPARTMENTS) {
     const canonicalNameKey = dept.name.toLowerCase().replace(/[^a-z0-9]/g, '');
     const canonicalIdKey = dept.id.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -319,10 +319,51 @@ export function normalizeDepartment(input?: string | null): DepartmentDefinition
         return dept;
       }
     }
+
+    for (const issueType of dept.supportedIssueTypes) {
+      const issueKey = issueType.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normalizedKey === issueKey || (normalizedKey.length > 3 && issueKey.includes(normalizedKey)) || (issueKey.length > 3 && normalizedKey.includes(issueKey))) {
+        return dept;
+      }
+    }
+
+    for (const cat of dept.serviceCategories) {
+      const catKey = cat.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normalizedKey === catKey) {
+        return dept;
+      }
+    }
   }
 
   return null;
 }
+
+/**
+ * Strict department isolation checker:
+ * Checks if a report belongs to a target department ID, either via direct department fields
+ * or via category / issue type taxonomy.
+ */
+export function isReportInDepartment(
+  report: { departmentId?: string; department?: string; category?: string; damageType?: string; complaintType?: string },
+  targetDeptId?: string | null
+): boolean {
+  const normTarget = normalizeDepartmentId(targetDeptId);
+  if (!normTarget) return false;
+
+  // 1. Direct department field match
+  const deptFromField = normalizeDepartmentId(report.departmentId || report.department);
+  if (deptFromField === normTarget) return true;
+
+  // 2. Category / damageType / complaintType match
+  const catString = report.category || report.damageType || report.complaintType;
+  if (catString) {
+    const deptFromCategory = normalizeDepartmentId(catString);
+    if (deptFromCategory === normTarget) return true;
+  }
+
+  return false;
+}
+
 
 /**
  * Normalizes an arbitrary department string into its canonical ID.

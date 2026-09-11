@@ -7,7 +7,7 @@ import { normalizeDepartmentId } from '@/lib/departments';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, Filter, Layers, Construction, Trash2, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { MapPin, Layers, Construction, Trash2, ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 // Dynamic import for Leaflet map component (SSR safe)
 const HeatMap = dynamic(() => import('@/components/heat-map'), {
@@ -65,7 +65,6 @@ export function DeptOperationsMap({
   onSelectReport,
 }: DeptOperationsMapProps) {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
-  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('all');
   const [focusedReport, setFocusedReport] = useState<{ lat: number; lng: number; reportId: string } | null>(null);
 
   const isRoadsDept = userDeptId.includes('road');
@@ -116,38 +115,13 @@ export function DeptOperationsMap({
     });
   }, [deptReports, isRoadsDept, isGarbageDept]);
 
-  // Available Category Filter Pills based on Department
-  const categoryFilters = useMemo(() => {
-    if (isRoadsDept) {
-      return [
-        { key: 'all', label: 'All Road Issues' },
-        { key: 'Pothole', label: 'Potholes' },
-        { key: 'Road Damage', label: 'Road Damage' },
-        { key: 'Hazard', label: 'Road Hazards' },
-      ];
-    }
-    if (isGarbageDept) {
-      return [
-        { key: 'all', label: 'All Waste Issues' },
-        { key: 'Overflowing Bins', label: 'Overflowing Bins' },
-        { key: 'Illegal Dumping', label: 'Illegal Dumping' },
-        { key: 'Drainage', label: 'Drainage Blockage' },
-      ];
-    }
-    return [{ key: 'all', label: 'All Issues' }];
-  }, [isRoadsDept, isGarbageDept]);
-
-  // Apply filters
+  // Apply status filter
   const filteredMapData = useMemo(() => {
     return mapData.filter(item => {
       if (selectedStatusFilter !== 'all' && item.status !== selectedStatusFilter) return false;
-      if (selectedCategoryFilter !== 'all') {
-        const catText = (item.category + ' ' + item.description).toLowerCase();
-        if (!catText.includes(selectedCategoryFilter.toLowerCase())) return false;
-      }
       return true;
     });
-  }, [mapData, selectedStatusFilter, selectedCategoryFilter]);
+  }, [mapData, selectedStatusFilter]);
 
   return (
     <Card className="border-slate-200 shadow-sm overflow-hidden">
@@ -187,28 +161,6 @@ export function DeptOperationsMap({
             ))}
           </div>
         </div>
-
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-slate-200/60 overflow-x-auto pb-1">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
-            <Filter className="h-3 w-3" /> Filter:
-          </span>
-          {categoryFilters.map(cf => (
-            <Button
-              key={cf.key}
-              size="sm"
-              variant={selectedCategoryFilter === cf.key ? 'secondary' : 'outline'}
-              className={`h-6 text-[11px] px-2 rounded-full border ${
-                selectedCategoryFilter === cf.key
-                  ? 'bg-indigo-600 text-white font-bold border-indigo-700'
-                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
-              }`}
-              onClick={() => setSelectedCategoryFilter(cf.key)}
-            >
-              {cf.label}
-            </Button>
-          ))}
-        </div>
       </CardHeader>
 
       <CardContent className="p-0 relative">
@@ -217,6 +169,7 @@ export function DeptOperationsMap({
           className={className}
           focusLocation={focusedReport}
           onSelectReport={onSelectReport}
+          showWardBoundaries={false}
         />
       </CardContent>
     </Card>

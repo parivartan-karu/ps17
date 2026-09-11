@@ -374,21 +374,21 @@ export default function NotificationsManagementPage() {
     <div className="flex-1 space-y-4 p-4 md:p-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Admin Alerts</h1>
-          <p className="text-muted-foreground">Create time-bound or unpredictable alerts for citizens and workers</p>
+          <h1 className="text-2xl font-bold tracking-tight">Admin Notice</h1>
+          <p className="text-muted-foreground">Create time-bound or unpredictable notices for citizens and workers</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
-              New Alert
+              New Notice
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Send New Alert</DialogTitle>
+              <DialogTitle>Send New Notice</DialogTitle>
               <DialogDescription>
-                Alerts can be time-bound or unpredictable. Time-bound alerts auto-archive after duration ends.
+                Notices can be time-bound or unpredictable. Time-bound notices auto-archive after duration ends.
               </DialogDescription>
             </DialogHeader>
 
@@ -469,7 +469,7 @@ export default function NotificationsManagementPage() {
                 </div>
               ) : (
                 <div className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-                  This alert will stay active until manually archived or deleted.
+                  This notice will stay active until manually archived or deleted.
                 </div>
               )}
 
@@ -501,7 +501,7 @@ export default function NotificationsManagementPage() {
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Click anywhere on the map to pin an exact alert location.
+                  Click anywhere on the map to pin an exact notice location.
                 </p>
 
                 <Input
@@ -555,7 +555,7 @@ export default function NotificationsManagementPage() {
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />
-                    Send Alert
+                    Send Notice
                   </>
                 )}
               </Button>
@@ -566,8 +566,8 @@ export default function NotificationsManagementPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Alert Management</CardTitle>
-          <CardDescription>Active alerts auto-move to archive when their duration ends</CardDescription>
+          <CardTitle>Notice Management</CardTitle>
+          <CardDescription>Active notices auto-move to archive when their duration ends</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="active" className="space-y-4">
@@ -648,7 +648,7 @@ export default function NotificationsManagementPage() {
               {!isLoading && activeNotifications.length === 0 ? (
                 <div className="text-center py-8">
                   <Bell className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No active alerts</p>
+                  <p className="text-muted-foreground">No active notices</p>
                 </div>
               ) : null}
             </TabsContent>
@@ -698,7 +698,7 @@ export default function NotificationsManagementPage() {
               {!isLoading && archivedNotifications.length === 0 ? (
                 <div className="text-center py-8">
                   <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No archived alerts</p>
+                  <p className="text-muted-foreground">No archived notices</p>
                 </div>
               ) : null}
             </TabsContent>

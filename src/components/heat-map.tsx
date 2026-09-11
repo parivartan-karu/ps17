@@ -138,6 +138,7 @@ interface MaharashtraMapProps {
   onSelectReport?: (reportId: string) => void;
   selectedWard?: string | null;
   onSelectWard?: (wardName: string | null) => void;
+  showWardBoundaries?: boolean; // Whether to show PMC ward boundary overlays
 }
 
 // Pune & PMRDA bounds (Strict Pune City & Alandi area boundary)
@@ -182,6 +183,7 @@ export default function HeatMap({
   onSelectReport,
   selectedWard,
   onSelectWard,
+  showWardBoundaries = true,
 }: MaharashtraMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -398,6 +400,9 @@ export default function HeatMap({
     const layer = wardsLayerRef.current;
     layer.clearLayers();
 
+    // If ward boundaries are hidden, skip drawing
+    if (!showWardBoundaries) return;
+
     // 1. Draw outer PMC City boundary outline (Thick Blue Border)
     const outerPolygon = L.polygon(PMC_OUTER_BOUNDARY, {
       color: '#1e3a8a',
@@ -494,7 +499,7 @@ export default function HeatMap({
 
       layer.addLayer(labelMarker);
     });
-  }, [mapReady, selectedWard, onSelectWard]);
+  }, [mapReady, selectedWard, onSelectWard, showWardBoundaries]);
 
   // Update markers when data changes
   useEffect(() => {

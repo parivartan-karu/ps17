@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { normalizeDepartment, normalizeDepartmentId } from '@/lib/departments';
+import { normalizeDepartment, normalizeDepartmentId, isReportInDepartment } from '@/lib/departments';
 
 export default function DeptWorkersPage() {
   const firestore = useFirestore();
@@ -47,9 +47,11 @@ export default function DeptWorkersPage() {
   }, [rawWorkers, userDeptId]);
 
   const reports = useMemo(() => {
-    if (!rawReports || !userDeptId) return [];
-    return rawReports.filter(r => normalizeDepartmentId(r.departmentId || r.department) === userDeptId);
-  }, [rawReports, userDeptId]);
+    if (!rawReports) return [];
+    if (isSystemAdmin) return rawReports;
+    if (!userDeptId) return [];
+    return rawReports.filter(r => isReportInDepartment(r, userDeptId));
+  }, [rawReports, userDeptId, isSystemAdmin]);
 
   const enriched = useMemo(() => {
     return (workers ?? []).map(w => {

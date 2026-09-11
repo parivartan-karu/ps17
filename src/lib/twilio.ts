@@ -87,6 +87,39 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+async function sendFast2SMS(phoneNumber: string, message: string): Promise<{ success: boolean; messageSid?: string; error?: string } | null> {
+  const apiKey = process.env.FAST2SMS_API_KEY;
+  if (!apiKey) return null;
+
+  const cleanNumber = phoneNumber.replace(/\D/g, '').slice(-10);
+  if (cleanNumber.length !== 10) return null;
+
+  try {
+    const res = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+      method: 'POST',
+      headers: {
+        authorization: apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        route: 'q',
+        message: normalizeSmsText(message),
+        language: 'english',
+        flash: 0,
+        numbers: cleanNumber,
+      }),
+    });
+
+    const json = await res.json();
+    if (json?.return || json?.status_code === 200) {
+      return { success: true, messageSid: json.request_id || 'fast2sms-success' };
+    }
+    return { success: false, error: json.message || 'Fast2SMS delivery failed' };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Fast2SMS request failed' };
+  }
+}
+
 async function sendMessagePart({
   auth,
   phoneNumber,
@@ -125,10 +158,16 @@ async function sendMessagePart({
       continue;
     }
 
-    console.error('Twilio error:', error);
+    // Specific diagnosis for Twilio Trial account unverified number error (21608)
+    let errorMessage = error.message || 'Failed to send SMS';
+    if (error.code === 21608) {
+      errorMessage = `Twilio Trial Account requires ${normalizedPhoneNumber} to be verified at twilio.com/user/account/phone-numbers/verified, or configure FAST2SMS_API_KEY in .env for unverified Indian mobile numbers.`;
+    }
+
+    console.error('SMS Gateway Error:', error);
     return {
       success: false,
-      error: error.message || 'Failed to send SMS',
+      error: errorMessage,
     };
   }
 
@@ -149,9 +188,17 @@ export async function sendSMS({
   message,
 }: SendSMSParams): Promise<{ success: boolean; messageSid?: string; error?: string }> {
   try {
+    // 1. Attempt Fast2SMS if API key present
+    const fastRes = await sendFast2SMS(phoneNumber, message);
+    if (fastRes) {
+      if (fastRes.success) return fastRes;
+      console.warn('Fast2SMS failed, falling back to Twilio:', fastRes.error);
+    }
+
+    // 2. Twilio Gateway
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
       console.error('Twilio credentials not configured');
-      return { success: false, error: 'Twilio credentials not configured' };
+      return { success: false, error: 'SMS credentials not configured' };
     }
 
     const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');

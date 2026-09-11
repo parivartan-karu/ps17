@@ -1,4 +1,4 @@
-import { Bell, BarChart, FilePlus, HandHeart, HardHat, LayoutDashboard, List, Map, MapPin, MessageSquare, Settings, ShieldAlert, Trophy, User, UserCheck } from 'lucide-react';
+import { Bell, BarChart, FilePlus, HandHeart, HardHat, LayoutDashboard, List, Map, MapPin, MessageSquare, Settings, Trophy, User, UserCheck } from 'lucide-react';
 
 export type NavItem = {
   href: string;
@@ -18,12 +18,10 @@ export const userNavItems: NavItem[] = [{ href: '/citizen/profile', label: 'Prof
 export const smcNavItems: NavItem[] = [
   { href: '/smc/dashboard', label: 'Dashboard', icon: <LayoutDashboard /> },
   { href: '/smc/complaints', label: 'Complaints', icon: <List /> },
-  { href: '/smc/illegal-dumping', label: 'Illegal Dumping', icon: <ShieldAlert /> },
   { href: '/smc/contracts', label: 'Contractors', icon: <UserCheck /> },
-  { href: '/smc/wards', label: 'Departments', icon: <Map /> },
   { href: '/smc/analytics', label: 'Analytics', icon: <BarChart /> },
   { href: '/smc/civic-services', label: 'Civic Services', icon: <MapPin /> },
-  { href: '/smc/notifications', label: 'Alerts', icon: <Bell /> },
+  { href: '/smc/notifications', label: 'Notice', icon: <Bell /> },
   { href: '/smc/settings', label: 'Settings', icon: <Settings /> },
 ];
 

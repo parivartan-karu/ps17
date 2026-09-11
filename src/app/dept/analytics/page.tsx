@@ -14,7 +14,7 @@ import {
 import { useAuth, useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import type { Report, User as UserType } from '@/lib/types';
-import { normalizeDepartmentId, CANONICAL_DEPARTMENTS, type DepartmentDefinition } from '@/lib/departments';
+import { normalizeDepartmentId, CANONICAL_DEPARTMENTS, isReportInDepartment, type DepartmentDefinition } from '@/lib/departments';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,8 +44,8 @@ export default function DeptAnalyticsPage() {
   // Department-Scoped Queries
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'reports'), limitToDept(deptId || 'dept_engineering'));
-  }, [firestore, deptId]);
+    return collection(firestore, 'reports');
+  }, [firestore]);
   const { data: rawReports, isLoading: isReportsLoading } = useCollection<Report>(reportsQuery);
 
   const workersQuery = useMemoFirebase(() => {
@@ -57,10 +57,8 @@ export default function DeptAnalyticsPage() {
   // Strict Department Scoping Filter
   const deptReports = useMemo(() => {
     if (!rawReports) return [];
-    return rawReports.filter(r => {
-      const rDeptId = normalizeDepartmentId(r.departmentId || r.department);
-      return rDeptId === deptId;
-    });
+    if (!deptId) return rawReports;
+    return rawReports.filter(r => isReportInDepartment(r, deptId));
   }, [rawReports, deptId]);
 
   const deptWorkers = useMemo(() => {

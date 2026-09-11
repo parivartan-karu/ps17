@@ -180,13 +180,6 @@ export function DeptCommandCenter({
         r.causeTag?.toLowerCase().includes('overflow')
       )).length;
 
-      const illegalDumping = active.filter(r => (
-        r.complaintType === 'Illegal Dumping' ||
-        r.category?.toLowerCase().includes('dumping') ||
-        r.category?.toLowerCase().includes('illegal') ||
-        r.description?.toLowerCase().includes('dumping')
-      )).length;
-
       const now = Date.now();
       const backlog = active.filter(r => {
         const ageHours = (now - new Date(r.timestamp).getTime()) / (1000 * 3600);
@@ -204,7 +197,7 @@ export function DeptCommandCenter({
         .sort((a, b) => b[1] - a[1])
         .slice(0, 4);
 
-      return { overflowing, illegalDumping, backlog, hotspots };
+      return { overflowing, backlog, hotspots };
     }
 
     return null;
@@ -386,18 +379,6 @@ export function DeptCommandCenter({
                   <div>
                     <p className="text-2xl font-extrabold text-emerald-950">{deptBreakdown.overflowing}</p>
                     <p className="text-xs font-semibold text-emerald-700">Overflowing Bins</p>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="border-rose-100 bg-rose-50/50 shadow-sm">
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="p-3 rounded-xl bg-rose-600 text-white">
-                    <ShieldAlert className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-extrabold text-rose-950">{deptBreakdown.illegalDumping}</p>
-                    <p className="text-xs font-semibold text-rose-700">Illegal Dumping Cases</p>
                   </div>
                 </CardContent>
               </Card>

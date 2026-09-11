@@ -5,7 +5,7 @@ import { collection, query, where, doc } from 'firebase/firestore';
 import { useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import type { Report, User as UserType } from '@/lib/types';
-import { normalizeDepartmentId } from '@/lib/departments';
+import { normalizeDepartmentId, isReportInDepartment } from '@/lib/departments';
 import { DeptCommandCenter } from '@/components/dept-command-center';
 
 export default function DeptDashboardPage() {
@@ -40,7 +40,7 @@ export default function DeptDashboardPage() {
   // Server-authorized department scoping
   const reports = useMemo(() => {
     if (!rawReports || !userDeptId) return [];
-    return rawReports.filter(r => normalizeDepartmentId(r.departmentId || r.department) === userDeptId);
+    return rawReports.filter(r => isReportInDepartment(r, userDeptId));
   }, [rawReports, userDeptId]);
 
   const workers = useMemo(() => {
