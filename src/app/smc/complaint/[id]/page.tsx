@@ -666,15 +666,16 @@ export default function SmcComplaintDetailPage() {
                 <Bot className="h-4 w-4" />
                 <AlertTitle>Report Summary</AlertTitle>
                 <AlertDescription>
-                  <ReactMarkdown
-                    className="text-sm"
-                    components={{
-                      p: ({ node, ...props }) => <p className="whitespace-pre-wrap mb-2 last:mb-0" {...props} />,
-                      strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
-                    }}
-                  >
-                    {summary}
-                  </ReactMarkdown>
+                  <div className="text-sm">
+                    <ReactMarkdown
+                      components={{
+                        p: ({ node, ...props }) => <p className="whitespace-pre-wrap mb-2 last:mb-0" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+                      }}
+                    >
+                      {summary}
+                    </ReactMarkdown>
+                  </div>
                 </AlertDescription>
               </Alert>
             )}

@@ -1,9 +1,16 @@
 'use client';
+
 import React, { type ReactNode } from 'react';
 import { FirebaseProvider, initializeFirebase } from '@/firebase';
 
-// This is the single source of truth for initializing Firebase client-side.
-const { firebaseApp, firestore, auth } = initializeFirebase();
+let cachedServices: ReturnType<typeof initializeFirebase> | null = null;
+
+function getServices() {
+  if (!cachedServices || !cachedServices.firebaseApp) {
+    cachedServices = initializeFirebase();
+  }
+  return cachedServices;
+}
 
 /**
  * Provides Firebase services to client components.
@@ -13,9 +20,9 @@ const { firebaseApp, firestore, auth } = initializeFirebase();
  * @returns {React.ReactElement} The provider component.
  */
 export function FirebaseClientProvider({ children }: { children: ReactNode }) {
+  const { firebaseApp, firestore, auth } = getServices();
+
   if (!firebaseApp || !firestore || !auth) {
-    // This can happen if initialization fails.
-    // You might want to render a more user-friendly error message.
     return (
       <div>
         <h1>Error</h1>

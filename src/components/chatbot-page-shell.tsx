@@ -210,18 +210,19 @@ export function ChatbotPageShell({ compact = false, onClose }: ChatbotPageShellP
                 )}
               >
                 {msg.role === 'model' ? (
-                  <ReactMarkdown
-                    className="text-sm leading-relaxed"
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      p: ({ node, ...props }) => <p className="mb-2 whitespace-pre-wrap last:mb-0" {...props} />,
-                      ul: ({ node, ...props }) => <ul className="my-2 list-disc list-inside space-y-1" {...props} />,
-                      ol: ({ node, ...props }) => <ol className="my-2 list-decimal list-inside space-y-1" {...props} />,
-                      strong: ({ node, ...props }) => <strong className="font-semibold text-slate-900 dark:text-white" {...props} />,
-                    }}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
+                  <div className="text-sm leading-relaxed">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        p: ({ node, ...props }) => <p className="mb-2 whitespace-pre-wrap last:mb-0" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="my-2 list-disc list-inside space-y-1" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="my-2 list-decimal list-inside space-y-1" {...props} />,
+                        strong: ({ node, ...props }) => <strong className="font-semibold text-slate-900 dark:text-white" {...props} />,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
                 ) : (
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 )}

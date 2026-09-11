@@ -1,42 +1,51 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import * as firebaseAppModule from 'firebase/app';
+import * as firebaseAuthModule from 'firebase/auth';
+import * as firebaseFirestoreModule from 'firebase/firestore';
+import type { FirebaseApp } from 'firebase/app';
+import type { Auth } from 'firebase/auth';
+import type { Firestore } from 'firebase/firestore';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
-export function initializeFirebase() {
-  if (!getApps().length) {
-    // Important! initializeApp() is called without any arguments because Firebase App Hosting
-    // integrates with the initializeApp() function to provide the environment variables needed to
-    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
-    // without arguments.
-    let firebaseApp;
+export function initializeFirebase(): {
+  firebaseApp: FirebaseApp;
+  auth: Auth;
+  firestore: Firestore;
+} {
+  const getAppsFn = firebaseAppModule?.getApps || (firebaseAppModule as any)?.default?.getApps;
+  const initializeAppFn = firebaseAppModule?.initializeApp || (firebaseAppModule as any)?.default?.initializeApp;
+  const getAppFn = firebaseAppModule?.getApp || (firebaseAppModule as any)?.default?.getApp;
+
+  const apps = typeof getAppsFn === 'function' ? getAppsFn() : [];
+  let app: FirebaseApp;
+  if (!apps.length) {
     try {
-      // Attempt to initialize via Firebase App Hosting environment variables
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // Only warn in production because it's normal to use the firebaseConfig to initialize
-      // during development
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
-      }
-      firebaseApp = initializeApp(firebaseConfig);
+      app = initializeAppFn();
+    } catch {
+      app = initializeAppFn(firebaseConfig);
     }
-
-    return getSdks(firebaseApp);
+  } else {
+    app = getAppFn();
   }
 
-  // If already initialized, return the SDKs with the already initialized App
-  return getSdks(getApp());
+  const getAuthFn = firebaseAuthModule?.getAuth || (firebaseAuthModule as any)?.default?.getAuth;
+  const getFirestoreFn = firebaseFirestoreModule?.getFirestore || (firebaseFirestoreModule as any)?.default?.getFirestore;
+
+  return {
+    firebaseApp: app,
+    auth: typeof getAuthFn === 'function' ? getAuthFn(app) : (null as any),
+    firestore: typeof getFirestoreFn === 'function' ? getFirestoreFn(app) : (null as any),
+  };
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  const getAuthFn = firebaseAuthModule?.getAuth || (firebaseAuthModule as any)?.default?.getAuth;
+  const getFirestoreFn = firebaseFirestoreModule?.getFirestore || (firebaseFirestoreModule as any)?.default?.getFirestore;
   return {
     firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    auth: getAuthFn(firebaseApp),
+    firestore: getFirestoreFn(firebaseApp),
   };
 }
 

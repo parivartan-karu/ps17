@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Eye, EyeOff, Loader2, Leaf, Mail, Lock, User, Phone, LogIn, UserPlus, ArrowRight, Camera, MapPin, Bell, Trophy } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Leaf, Mail, Lock, User, Phone, LogIn, UserPlus, ArrowRight, Camera, MapPin, Bell, Gift } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
@@ -109,7 +109,7 @@ export default function CitizenLoginPage() {
             { icon: Camera, label: 'AI-powered photo analysis' },
             { icon: MapPin, label: 'GPS-tagged reports' },
             { icon: Bell, label: 'Real-time push updates' },
-            { icon: Trophy, label: 'Leaderboard' },
+            { icon: Gift, label: 'Redeem Rewards' },
           ].map(f => (
             <div key={f.label} className="flex items-center gap-2 bg-white/10 rounded-xl p-3 text-sm">
               <f.icon className="h-4 w-4 text-emerald-200 shrink-0" />
