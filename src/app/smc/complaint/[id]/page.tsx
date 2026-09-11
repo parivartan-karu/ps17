@@ -35,6 +35,8 @@ import { summarizeReportFlow } from '@/ai/flows/summarize-report-flow';
 import ReactMarkdown from 'react-markdown';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import { departmentConfig, departments } from '@/lib/constants';
+import { SmcCentralOverrideDialog } from '@/components/smc-central-override-dialog';
+import { AgentPipelineVisualization } from '@/components/agent-pipeline-visualization';
 
 
 const statusColors: { [key: string]: string } = {
@@ -409,9 +411,12 @@ export default function SmcComplaintDetailPage() {
       <div className="lg:col-span-2 space-y-8">
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
               <CardTitle className="text-2xl">{report.category}: {report.description}</CardTitle>
-              <Badge className={`${statusColors[report.status]}`}>{report.status}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge className={`${statusColors[report.status]}`}>{report.status}</Badge>
+                <SmcCentralOverrideDialog report={report} workers={workers ?? []} />
+              </div>
             </div>
             <CardDescription>Report ID: {report.id}</CardDescription>
           </CardHeader>
@@ -648,6 +653,9 @@ export default function SmcComplaintDetailPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Multi-Agent Pipeline Visualization */}
+        <AgentPipelineVisualization report={report} isAdminView={true} />
       </div>
 
       <div className="lg:col-span-1 space-y-8">

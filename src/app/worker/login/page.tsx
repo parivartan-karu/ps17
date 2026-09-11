@@ -25,7 +25,7 @@ export default function WorkerLoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => { if (user) router.push('/worker/dashboard'); }, [user, router]);
+
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -194,7 +194,7 @@ export default function WorkerLoginPage() {
             </Link>
             <Link href="/smc/login"
               className="hover:text-purple-600 transition-colors flex items-center gap-1">
-              Garbage Dept <ArrowRight className="h-3 w-3" />
+              Department Portal <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
         </div>

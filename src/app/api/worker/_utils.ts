@@ -34,8 +34,9 @@ export async function getWorkerReports(request: NextRequest) {
   const snapshot = await firestore.collection('reports').get();
   const reports = snapshot.docs.map((doc: QueryDocumentSnapshot): Report => ({ ...(doc.data() as Report), id: doc.id }));
 
+  const workerDept = worker.profile?.departmentId || worker.profile?.department;
   const assignedReports = reports.filter((report: Report) => isAssignedToWorker(report, worker.uid, worker.name));
-  const openLowPriority = reports.filter((report: Report) => isOpenLowPriorityTask(report));
+  const openLowPriority = reports.filter((report: Report) => isOpenLowPriorityTask(report, workerDept));
 
   return {
     worker,

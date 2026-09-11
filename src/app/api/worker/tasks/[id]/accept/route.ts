@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getWorkerReport, handleApiError, handleNotFound, serializableReport, timestampNow, workerLog } from '@/app/api/worker/_utils';
 import { getFirebaseAdmin } from '@/firebase/server';
-
+import { normalizeDepartmentId } from '@/lib/departments';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -17,12 +17,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: 'Task is not available for this worker.' }, { status: 403 });
     }
 
-    // Use transaction to atomically check and update for open low-priority tasks
-    // This prevents race condition where two workers accept the same task
     const { firestore } = await getFirebaseAdmin();
     const acceptedAt = report.acceptedAt || timestampNow();
 
-    const result = await firestore.runTransaction(async (transaction: any) => {
+    await firestore.runTransaction(async (transaction: any) => {
       const freshReport = await transaction.get(reportRef);
       if (!freshReport.exists) {
         throw new Error('NOT_FOUND');
@@ -30,16 +28,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
       const freshData = freshReport.data();
       
-      // Re-check eligibility within transaction (conditions may have changed)
+      // Re-check eligibility & department ownership within transaction (Requirements 8 & 9)
       const isStillAssigned = worker.uid === freshData.assignedWorkerId;
+
+      const workerDept = normalizeDepartmentId(worker.profile?.departmentId || worker.profile?.department);
+      const reportDept = normalizeDepartmentId(freshData.departmentId || freshData.department);
+
+      const isSameDept = !reportDept || !workerDept || reportDept === workerDept;
+
       const isStillOpenLowPriority = 
+        isSameDept &&
         (freshData.priority === 'Low' || freshData.priority === 'Medium') &&
         !freshData.assignedWorkerId &&
-        (freshData.status === 'Submitted' || freshData.status === 'Assigned');
+        (freshData.status === 'Submitted' || freshData.status === 'Assigned' || freshData.status === 'Under Verification');
 
       if (!isStillAssigned && !isStillOpenLowPriority) {
         throw new Error('TASK_UNAVAILABLE');
       }
+
+      const isFirstAssignment = freshData.assignedWorkerId !== worker.uid;
 
       // Atomic update within transaction
       transaction.update(reportRef, {
@@ -49,24 +56,27 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         acceptedAt,
         selfAssigned: freshData.selfAssigned || isStillOpenLowPriority,
         status: 'Assigned',
+        queueStatus: 'assigned_worker',
         workflowStage: 'assigned_worker',
         actionLog: FieldValue.arrayUnion(
           workerLog('Assigned', worker.name, isStillOpenLowPriority ? 'Task self-assigned by worker.' : 'Task accepted by worker.')
         ),
       });
 
-      // Track worker capacity
-      const workerRef = firestore.collection('users').doc(worker.uid);
-      transaction.update(workerRef, { activeTasks: FieldValue.increment(1) });
-
-      return true;
+      // Increment activeTasks ONLY if first time accepting this task (prevent double increment)
+      if (isFirstAssignment) {
+        const workerRef = firestore.collection('users').doc(worker.uid);
+        const wDoc = await transaction.get(workerRef);
+        const currentActive = wDoc.exists ? (wDoc.data().activeTasks ?? 0) : 0;
+        transaction.update(workerRef, { activeTasks: currentActive + 1 });
+      }
     });
 
     const updated = await reportRef.get();
     return NextResponse.json({ task: serializableReport({ ...(updated.data() as typeof report), id: updated.id }) });
   } catch (error) {
     if (error instanceof Error && error.message === 'TASK_UNAVAILABLE') {
-      return NextResponse.json({ error: 'Another worker has claimed this task. Please refresh and try again.' }, { status: 409 });
+      return NextResponse.json({ error: 'Another worker has claimed this task or department mismatch. Please refresh.' }, { status: 409 });
     }
     return handleNotFound(error) || handleApiError(error);
   }

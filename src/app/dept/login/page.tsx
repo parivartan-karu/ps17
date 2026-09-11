@@ -18,16 +18,13 @@ export default function DeptLoginPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
-  const { user } = useUser();
   const { toast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) router.push('/dept/dashboard');
-  }, [user, router]);
+
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -79,7 +76,7 @@ export default function DeptLoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@pmc.gov.in"
+                    placeholder="admin@gmail.com"
                     className="pl-10 h-11 rounded-xl border-gray-200 focus:border-indigo-500 focus:ring-indigo-500"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}

@@ -54,7 +54,7 @@ export default function CitizenLoginPage() {
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
 
-  useEffect(() => { if (user) router.push('/citizen/dashboard'); }, [user, router]);
+
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -177,7 +177,7 @@ export default function CitizenLoginPage() {
               <Link href="/privacy" className="underline hover:text-emerald-600">Privacy Policy</Link>
             </p>
             <div className="flex justify-center gap-4 text-xs text-gray-400 mt-1">
-              <Link href="/smc/login" className="hover:text-purple-600 transition-colors flex items-center gap-1">Garbage Dept <ArrowRight className="h-3 w-3" /></Link>
+              <Link href="/smc/login" className="hover:text-purple-600 transition-colors flex items-center gap-1">Department <ArrowRight className="h-3 w-3" /></Link>
               <Link href="/worker/login" className="hover:text-orange-600 transition-colors flex items-center gap-1">Field Worker <ArrowRight className="h-3 w-3" /></Link>
               <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">Admin <ArrowRight className="h-3 w-3" /></Link>
             </div>

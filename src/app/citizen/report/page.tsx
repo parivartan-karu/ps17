@@ -37,12 +37,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
 import { useUser } from '@/firebase/provider';
-import { useFirestore } from '@/firebase/provider';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { collection, doc, updateDoc, arrayUnion, query, where, getDocs } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { aiDamageAssessment } from '@/ai/flows/ai-damage-assessment';
-import { analyzeReportForWorkflow, getInitialStatus, createAutomatedActionLog, calculateAutomationConfidence } from '@/lib/workflow-automation';
 import type { AIAnalysis } from '@/lib/types';
 import { useDuplicateDetection } from '@/hooks/use-duplicate-detection';
 import Link from 'next/link';
@@ -58,11 +54,11 @@ const problemCategories = [
 ];
 
 const reportProblemSchema = z.object({
-  category: z.string({ required_error: 'Please select a category.' }),
+  category: z.string().min(1, 'Please select a category.'),
   description: z.string().min(10, 'Description must be at least 10 characters.'),
   location: z.string().min(5, 'Please provide a location.'),
   roadName: z.string().optional(),
-  photo: z.string({ required_error: 'A photo is required.' }).url('Invalid photo data.'),
+  photo: z.string().min(1, 'A photo is required.').url('Invalid photo data.'),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
 });
@@ -108,7 +104,6 @@ export default function ReportProblemPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { user } = useUser();
-  const firestore = useFirestore();
   const router = useRouter();
 
   const compressImageDataUrl = useCallback((sourceDataUrl: string): Promise<string> => {
@@ -326,179 +321,58 @@ export default function ReportProblemPage() {
 
 
   async function onSubmit(values: ReportProblemForm) {
-    if (!user || !firestore) {
+    if (!user) {
       toast({ variant: 'destructive', title: 'Error', description: 'You must be logged in to submit a report.' });
       return;
     }
 
     setIsSubmitting(true);
 
-    const reportsCollection = collection(firestore, 'reports');
-
     try {
-      // Step 1: Run AI analysis first
       toast({
-        title: 'Analyzing with AI...',
-        description: 'Our AI is analyzing the damage and determining the best department.',
+        title: 'Submitting Report...',
+        description: 'Processing multi-agent triage securely on server.',
       });
 
-      let aiAnalysis: AIAnalysis | null = null;
-      const canUseCachedAnalysis = !!cachedAiAnalysis && cachedAiPhoto === values.photo;
-      if (canUseCachedAnalysis) {
-        aiAnalysis = cachedAiAnalysis;
-      } else {
-        try {
-          aiAnalysis = (await aiDamageAssessment({ mediaDataUri: values.photo })) as any;
-        } catch (e) {
-          console.error('AI analysis failed, continuing without it:', e);
-          aiAnalysis = null; // Use null instead of undefined for Firebase
-        }
-      }
+      const idToken = await user.getIdToken();
 
-      // Step 2: Run automated workflow analysis
-      const reportData = {
-        category: values.category,
-        description: values.description,
-        location: values.location,
-        latitude: values.latitude,
-        longitude: values.longitude,
-      };
-
-      const workflow = analyzeReportForWorkflow(reportData, aiAnalysis ?? undefined);
-      const initialStatus = getInitialStatus(workflow);
-      const automationConfidence = calculateAutomationConfidence(
-        aiAnalysis ?? undefined,
-        !!values.photo,
-        !!(values.latitude && values.longitude)
-      );
-
-      // Step 3: Create action log with automation info
-      const initialLogEntry = {
-        status: 'Submitted' as const,
-        timestamp: new Date().toISOString(),
-        actor: 'Citizen' as const,
-        actorName: user.displayName || 'Anonymous',
-        notes: 'Report submitted by citizen.',
-      };
-
-      // Step 3.5: Auto-select and assign best worker if autoAssign is true
-      let assignedWorkerId = '';
-      let assignedContractor = '';
-
-      if (workflow.autoAssign) {
-        try {
-          const usersRef = collection(firestore, 'users');
-          const workersQuery = query(
-            usersRef,
-            where('role', '==', 'worker')
-          );
-          const querySnapshot = await getDocs(workersQuery);
-          const workersList: any[] = [];
-          querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            workersList.push({
-              id: docSnap.id,
-              name: data.name || '',
-              department: data.department || '',
-              activeTaskCount: data.activeTasks || 0,
-            });
-          });
-
-          // Filter by department
-          const deptWorkers = workersList.filter(
-            (w) => w.department && w.department.toLowerCase() === workflow.suggestedDepartment.toLowerCase()
-          );
-
-          if (deptWorkers.length > 0) {
-            // Select worker with least active tasks
-            const bestWorker = deptWorkers.reduce((best, current) => {
-              return (current.activeTaskCount || 0) < (best.activeTaskCount || 0) ? current : best;
-            });
-            assignedWorkerId = bestWorker.id;
-            assignedContractor = bestWorker.name;
-          }
-        } catch (err) {
-          console.error('Error auto-selecting worker:', err);
-        }
-      }
-
-      const automatedLogEntry = createAutomatedActionLog(workflow, assignedContractor || undefined);
-
-      // Construct Illegal Dumping payload if visual evidence was detected by AI
-      const illegalDumpingPayload = aiAnalysis?.illegalDumping?.detected ? {
-        detected: true,
-        confidence: aiAnalysis.illegalDumping.confidence ?? 0.85,
-        wasteType: aiAnalysis.illegalDumping.wasteType || values.category || 'General Waste',
-        vehicleDetected: Boolean(aiAnalysis.illegalDumping.vehicleDetected),
-        vehicleType: aiAnalysis.illegalDumping.vehicleType || null,
-        licensePlateVisible: Boolean(aiAnalysis.illegalDumping.licensePlateVisible) && !!aiAnalysis.illegalDumping.licensePlateNumber,
-        licensePlateNumber: aiAnalysis.illegalDumping.licensePlateNumber || null,
-        evidenceQuality: aiAnalysis.illegalDumping.evidenceQuality || 'fair',
-        reason: aiAnalysis.illegalDumping.reason || 'Visual evidence captured.',
-        verificationStatus: 'PENDING' as const,
-        fineDetails: {
-          status: 'NOT_ISSUED' as const,
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
         },
-      } : null;
-
-      // Step 4: Create report with all automation data
-      const newReportRef = await addDocumentNonBlocking(reportsCollection, {
-        userId: user.uid,
-        userName: user.displayName || 'Anonymous',
-        userEmail: user.email || '',
-        location: values.location,
-        roadName: values.roadName || '',
-        latitude: values.latitude,
-        longitude: values.longitude,
-        description: values.description,
-        imageUrl: values.photo,
-        imageHint: 'road damage',
-        timestamp: new Date().toISOString(),
-        status: initialStatus,
-        department: workflow.suggestedDepartment,
-        category: values.category,
-        priority: workflow.suggestedPriority,
-        estimatedResolutionTime: workflow.estimatedResolutionTime,
-        workflowStage: workflow.autoAssign ? 'assigned_worker' : 'pending_admin',
-        assignedWorkerId: assignedWorkerId || null,
-        assignedContractor: assignedContractor || null,
-        aiAnalysis: aiAnalysis,
-        automationConfidence: automationConfidence,
-        actionLog: [initialLogEntry, automatedLogEntry],
-        complaintType: illegalDumpingPayload ? 'Illegal Dumping' : 'Standard',
-        illegalDumping: illegalDumpingPayload,
+        body: JSON.stringify({
+          description: values.description,
+          location: values.location,
+          roadName: values.roadName || '',
+          latitude: values.latitude,
+          longitude: values.longitude,
+          photo: values.photo,
+          citizenCategoryHint: values.category,
+        }),
       });
 
-      // Success messages based on automation level
-      if (workflow.autoAssign) {
-        toast({
-          title: 'Report Auto-Assigned',
-          description: `Automatically assigned to ${workflow.suggestedDepartment} department. Priority: ${workflow.suggestedPriority}`,
-          duration: 5000,
-        });
-      } else if (workflow.requiresVerification) {
-        toast({
-          title: 'Report Under Review',
-          description: "Your report is being verified by our team. You'll be notified of updates.",
-          duration: 5000,
-        });
-      } else {
-        toast({
-          title: 'Report Submitted',
-          description: 'Thank you for helping improve our roads!',
-        });
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Failed to submit report');
       }
+
+      toast({
+        title: 'Report Submitted Successfully',
+        description: `Your report has been received and routed to ${data.report?.department || 'Department'}. Priority: ${data.report?.priority || 'Medium'}`,
+      });
 
       form.reset();
       setCapturedImage(null);
       router.push('/citizen/my-complaints');
-
-    } catch (error) {
-      console.error("Error submitting report: ", error);
+    } catch (error: any) {
+      console.error('Error submitting report via secure API:', error);
       toast({
         variant: 'destructive',
         title: 'Submission Failed',
-        description: 'There was an error submitting your report. Please try again.',
+        description: error?.message || 'There was an error submitting your report. Please try again.',
       });
     } finally {
       setIsSubmitting(false);

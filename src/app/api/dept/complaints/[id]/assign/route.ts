@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/firebase/server';
-import { requireRequestIdentity, RequestAuthError } from '@/lib/server-auth';
+import { requireRequestIdentity, requireDepartmentAccess, RequestAuthError } from '@/lib/server-auth';
+import { normalizeDepartmentId } from '@/lib/departments';
+import { validateStatusTransition } from '@/lib/state-machine';
+import type { AssignmentHistory } from '@/lib/types';
 import { FieldValue } from 'firebase-admin/firestore';
 
 export const dynamic = 'force-dynamic';
@@ -10,13 +13,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   try {
     const identity = await requireRequestIdentity(request, ['department_head', 'official', 'admin']);
     const { id: reportId } = await context.params;
-    const { workerId, workerName } = await request.json() as { workerId: string; workerName: string };
+    const body = await request.json();
+    const workerId = body.workerId;
 
-    if (!reportId || !workerId || !workerName) {
-      return NextResponse.json({ error: 'reportId, workerId, workerName required.' }, { status: 400 });
+    if (!reportId || !workerId) {
+      return NextResponse.json({ error: 'reportId and workerId are required.' }, { status: 400 });
     }
 
     const { firestore } = await getFirebaseAdmin();
+    let actualWorkerName = 'Worker';
 
     await firestore.runTransaction(async (tx: any) => {
       const reportRef = firestore.collection('reports').doc(reportId);
@@ -26,32 +31,91 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       if (!reportDoc.exists) throw new Error('Report not found.');
       if (!workerDoc.exists) throw new Error('Worker not found.');
 
+      const reportData = reportDoc.data()!;
+      requireDepartmentAccess(reportData, identity);
+
+      // Authoritative State Machine Validation (Phase 5)
+      const transitionResult = validateStatusTransition(reportData.status, 'Assigned');
+      if (!transitionResult.valid) {
+        throw new Error(transitionResult.reason || 'Invalid status transition.');
+      }
+
       const workerData = workerDoc.data()!;
+      if (workerData.role !== 'worker') {
+        throw new Error('Assigned user must have the worker role.');
+      }
+
+      // Do NOT trust client workerName; load from authoritative worker document (Requirement 5)
+      actualWorkerName = workerData.name || workerData.email || 'Worker';
+
+      if (workerData.isAvailable === false) {
+        throw new Error(`${actualWorkerName} is currently marked as unavailable.`);
+      }
+
+      const reportDeptId = normalizeDepartmentId(reportData.departmentId || reportData.department);
+      const workerDeptId = normalizeDepartmentId(workerData.departmentId || workerData.department);
+      if (reportDeptId && workerDeptId && reportDeptId !== workerDeptId) {
+        throw new Error(`Worker belongs to department "${workerData.department || workerDeptId}", but report requires "${reportData.department || reportDeptId}".`);
+      }
+
       const active = workerData.activeTasks ?? 0;
       const max = workerData.maxTaskCapacity ?? 5;
-      if (active >= max) throw new Error(`${workerName} is already at capacity (${active}/${max} tasks).`);
+      const isReassignment = reportData.assignedWorkerId && reportData.assignedWorkerId !== workerId;
+      const isSameAssignment = reportData.assignedWorkerId === workerId;
 
+      if (!isSameAssignment && active >= max) {
+        throw new Error(`${actualWorkerName} is already at maximum capacity (${active}/${max} tasks).`);
+      }
+
+      // Handle reassignments: decrement previous worker's activeTasks if needed (Requirements 7 & 8)
+      if (isReassignment && reportData.assignedWorkerId) {
+        const prevWorkerRef = firestore.collection('users').doc(reportData.assignedWorkerId);
+        const prevWorkerDoc = await tx.get(prevWorkerRef);
+        if (prevWorkerDoc.exists) {
+          const prevActive = prevWorkerDoc.data().activeTasks ?? 1;
+          tx.update(prevWorkerRef, { activeTasks: Math.max(0, prevActive - 1) });
+        }
+      }
+
+      const timestampIso = new Date().toISOString();
       const logEntry = {
         status: 'Assigned',
-        timestamp: new Date().toISOString(),
+        timestamp: timestampIso,
         actor: 'Official',
         actorName: identity.profile.name ?? 'Dept Head',
-        notes: `Assigned to ${workerName} by department.`,
+        notes: `Assigned to ${actualWorkerName} by department.`,
+      };
+
+      const historyEntry: AssignmentHistory = {
+        id: `assign_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        reportId,
+        previousWorkerId: reportData.assignedWorkerId || undefined,
+        newWorkerId: workerId,
+        assignmentMethod: 'admin_assign',
+        assignedBy: identity.uid,
+        reason: 'Department head assignment',
+        timestamp: timestampIso,
       };
 
       tx.update(reportRef, {
         status: 'Assigned',
+        queueStatus: 'assigned_worker',
+        workflowStage: 'assigned_worker',
         assignedWorkerId: workerId,
-        assignedContractor: workerName,
+        assignedContractor: actualWorkerName,
         assignedBy: identity.uid,
         assignmentMethod: 'admin_assign',
         actionLog: FieldValue.arrayUnion(logEntry),
+        assignmentHistory: FieldValue.arrayUnion(historyEntry),
       });
 
-      tx.update(workerRef, { activeTasks: FieldValue.increment(1) });
+      // Increment activeTasks ONLY if assigning to a new worker (avoid double increment)
+      if (!isSameAssignment) {
+        tx.update(workerRef, { activeTasks: active + 1 });
+      }
     });
 
-    // Push to citizen (fire-and-forget)
+    // Push notification to citizen (fire-and-forget)
     ;(async () => {
       try {
         const reportDoc = await firestore.collection('reports').doc(reportId).get();
@@ -64,7 +128,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         const admin = await getFirebaseAdmin();
         await getMessaging(admin.app).sendEachForMulticast({
           tokens,
-          notification: { title: '👷 Worker Assigned', body: `${workerName} has been assigned to your complaint.` },
+          notification: { title: '👷 Worker Assigned', body: `${actualWorkerName} has been assigned to your complaint.` },
           webpush: {
             notification: { icon: '/icons/icon-192x192.png', tag: `complaint-${reportId}` },
             fcmOptions: { link: `/citizen/complaint/${reportId}` },
@@ -74,7 +138,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       } catch {}
     })();
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, assignedWorkerName: actualWorkerName });
   } catch (error) {
     if (error instanceof RequestAuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     const msg = error instanceof Error ? error.message : 'Assignment failed.';

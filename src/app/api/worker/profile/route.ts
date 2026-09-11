@@ -26,19 +26,13 @@ export async function PUT(request: NextRequest) {
     const { firestore } = await getFirebaseAdmin();
 
     // Explicitly whitelist which fields can be updated (defense-in-depth)
-    // Prevent accidental updates to restricted fields like role, points, email
+    // Prevent updates to administrative fields like role, departmentId, department, employeeId, capacity
     const allowedUpdates: Record<string, unknown> = {
       updatedAt: FieldValue.serverTimestamp(),
     };
 
     if (body.name) {
       allowedUpdates.name = body.name;
-    }
-    if (body.employeeId) {
-      allowedUpdates.employeeId = body.employeeId;
-    }
-    if (body.department) {
-      allowedUpdates.department = body.department;
     }
 
     await firestore.collection('users').doc(worker.uid).update(allowedUpdates);

@@ -44,6 +44,8 @@ import { useFirestore } from '@/firebase/provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { buildAuthHeaders } from '@/lib/client-auth';
+import { CANONICAL_DEPARTMENTS, normalizeDepartmentId } from '@/lib/departments';
+import { SmcCentralOverrideDialog } from '@/components/smc-central-override-dialog';
 
 const statusColors: Record<ReportStatus, string> = {
   Submitted: 'bg-blue-500',
@@ -79,6 +81,8 @@ function matchesSearch(report: Report, value: string) {
 
 export default function SmcComplaintsPage() {
   const [view, setView] = useState<ComplaintView>('active');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('All');
+  const [escalationFilter, setEscalationFilter] = useState<string>('All');
   const [search, setSearch] = useState('');
   const auth = useAuth();
   const firestore = useFirestore();
@@ -103,6 +107,7 @@ export default function SmcComplaintsPage() {
     const searchValue = search.trim().toLowerCase();
 
     return reports.filter((report) => {
+      // Status view filter
       if (view === 'active') {
         if (!ACTIVE_STATUSES.includes(report.status)) {
           return false;
@@ -111,9 +116,28 @@ export default function SmcComplaintsPage() {
         return false;
       }
 
+      // Department filter
+      if (departmentFilter !== 'All') {
+        const rDeptId = normalizeDepartmentId(report.departmentId || report.department);
+        if (rDeptId !== departmentFilter) {
+          return false;
+        }
+      }
+
+      // Escalation filter
+      if (escalationFilter === 'Breached' && !report.slaBreached) {
+        return false;
+      }
+      if (escalationFilter === 'Level 1' && report.escalationLevel !== 1) {
+        return false;
+      }
+      if (escalationFilter === 'Level 2' && (report.escalationLevel ?? 0) < 2) {
+        return false;
+      }
+
       return matchesSearch(report, searchValue);
     });
-  }, [reports, search, view]);
+  }, [reports, search, view, departmentFilter, escalationFilter]);
 
   const summary = useMemo(() => {
     if (!reports) {
@@ -248,21 +272,50 @@ export default function SmcComplaintsPage() {
               <TabsTrigger value="Rejected">Rejected</TabsTrigger>
             </TabsList>
           </div>
-          <div className="flex flex-1 items-center gap-2 lg:ml-auto lg:max-w-sm">
+          <div className="flex flex-1 items-center gap-2 lg:ml-auto lg:max-w-md">
+            <select
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none"
+            >
+              <option value="All">All Departments</option>
+              {CANONICAL_DEPARTMENTS.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+
             <div className="relative w-full">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by citizen, location, category, or department"
-                className="pl-9"
+                placeholder="Search by citizen, location..."
+                className="pl-9 text-xs"
               />
             </div>
-            <Button size="sm" variant="outline" className="h-10 gap-1 shrink-0">
-              <File className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
           </div>
+        </div>
+
+        {/* Escalation & SLA Filter Bar */}
+        <div className="flex items-center gap-2 pt-3 overflow-x-auto">
+          <span className="text-xs font-semibold text-slate-500 shrink-0">Filter SLA & Escalations:</span>
+          {['All', 'Breached', 'Level 1', 'Level 2'].map((f) => (
+            <button
+              key={f}
+              onClick={() => setEscalationFilter(f)}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold shrink-0 transition-colors ${
+                escalationFilter === f
+                  ? f.includes('Level') || f === 'Breached'
+                    ? 'bg-red-600 text-white shadow-sm'
+                    : 'bg-indigo-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              {f === 'Breached' ? '🚨 SLA Breached' : f.startsWith('Level') ? `⚠️ Escalation ${f}` : 'All Escalations'}
+            </button>
+          ))}
         </div>
 
         <TabsContent value={view} className="mt-6">
@@ -316,8 +369,6 @@ export default function SmcComplaintsPage() {
 
                     {!isLoading && filteredReports.map((report) => {
                       const isArchive = report.status === 'Resolved' || report.status === 'Rejected';
-                      const canQuickAssign = !isArchive && report.aiAnalysis?.suggestedDepartment && report.aiAnalysis.suggestedDepartment !== 'Unassigned';
-                      const canResolve = !isArchive && report.status !== 'Resolved';
 
                       return (
                         <TableRow key={report.id} className="hover:bg-slate-50/80">
@@ -332,7 +383,19 @@ export default function SmcComplaintsPage() {
                           </TableCell>
                           <TableCell className="font-medium">
                             <div className="space-y-1">
-                              <p className="line-clamp-2 text-sm text-slate-900">{report.description}</p>
+                              <div className="flex items-center gap-2">
+                                <p className="line-clamp-2 text-sm text-slate-900">{report.description}</p>
+                                {report.slaBreached && (
+                                  <span className="inline-flex items-center gap-1 rounded bg-red-100 text-red-700 px-1.5 py-0.5 text-[10px] font-extrabold shrink-0 border border-red-200">
+                                    🚨 SLA Breached
+                                  </span>
+                                )}
+                                {(report.escalationLevel ?? 0) > 0 && (
+                                  <span className="inline-flex items-center gap-1 rounded bg-amber-100 text-amber-800 px-1.5 py-0.5 text-[10px] font-extrabold shrink-0 border border-amber-300">
+                                    ⚠️ L{report.escalationLevel} Escalation
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs text-muted-foreground">{report.location.substring(0, 48)}{report.location.length > 48 ? '...' : ''}</p>
                               <div className="flex flex-wrap gap-2 pt-1 text-xs text-muted-foreground">
                                 <span>{report.category}</span>
@@ -373,6 +436,18 @@ export default function SmcComplaintsPage() {
                                 <DropdownMenuItem asChild>
                                   <Link href={`/smc/complaint/${report.id}`}>View Details</Link>
                                 </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <div className="p-1">
+                                  <SmcCentralOverrideDialog
+                                    report={report}
+                                    workers={workers ?? []}
+                                    triggerButton={
+                                      <Button variant="ghost" size="sm" className="w-full justify-start text-xs text-red-600 hover:text-red-700 hover:bg-red-50">
+                                        🛡️ Central Override
+                                      </Button>
+                                    }
+                                  />
+                               </div>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>

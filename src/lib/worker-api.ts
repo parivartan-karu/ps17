@@ -15,19 +15,24 @@ export const workerUploadSchema = z.object({
   notes: z.string().trim().max(500).optional(),
 });
 
+import { normalizeDepartmentId } from './departments';
+
 export const workerProfileUpdateSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
-  employeeId: z.string().trim().min(2).max(60).optional(),
-  department: z.string().trim().min(2).max(120).optional(),
 });
 
 export function isAssignedToWorker(report: Report, workerId: string, workerName: string) {
   return report.assignedWorkerId === workerId || (!!workerName && report.assignedContractor === workerName);
 }
 
-export function isOpenLowPriorityTask(report: Report) {
+export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: string) {
   const priority = report.priority || 'Medium';
+  const reportDeptId = normalizeDepartmentId(report.departmentId || report.department);
+  const workerDeptId = normalizeDepartmentId(workerDepartmentId);
+  const deptMatches = !workerDeptId || !reportDeptId || workerDeptId === reportDeptId;
+
   return (
+    deptMatches &&
     (priority === 'Low' || priority === 'Medium') &&
     !report.assignedWorkerId &&
     !report.assignedContractor &&

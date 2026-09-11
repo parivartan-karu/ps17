@@ -23,13 +23,12 @@ export type CivicService = {
   rejectionReason?: string;
 };
 
+import type { CanonicalDepartmentId, DepartmentDefinition } from './departments';
+
+export type { CanonicalDepartmentId };
+
 // Department type for hierarchical workflow
-export type Department = {
-  id: string;
-  name: string;
-  description?: string;
-  headOfficerId?: string; // The department head who manages workers
-};
+export type Department = DepartmentDefinition;
 
 export type User = {
   id: string;
@@ -130,6 +129,18 @@ export type Report = {
   // Illegal Dumping Enforcement fields
   complaintType?: 'Standard' | 'Illegal Dumping';
   illegalDumping?: IllegalDumpingData | null;
+  // Routing metadata fields
+  routingStatus?: 'pending' | 'assigned' | 'needs_review';
+  routingConfidence?: number;
+  routingReason?: string;
+  queueStatus?: 'queued' | 'pending_department' | 'accepted_by_department' | 'assigned' | 'assigned_worker' | 'in_progress' | 'completed';
+  slaResponseDeadline?: string;
+  slaDeadline?: string;
+  slaBreached?: boolean;
+  escalationLevel?: number;
+  escalatedTo?: string;
+  lastReminderSentAt?: string;
+  lastEscalatedAt?: string;
 };
 
 export type EvidenceQuality = 'good' | 'fair' | 'poor';

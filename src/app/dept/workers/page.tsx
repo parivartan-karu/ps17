@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import { normalizeDepartment, normalizeDepartmentId } from '@/lib/departments';
+
 export default function DeptWorkersPage() {
   const firestore = useFirestore();
   const { user } = useUser();
@@ -21,19 +23,33 @@ export default function DeptWorkersPage() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user?.uid]);
   const { data: profile } = useDoc<UserType>(profileRef);
-  const dept = profile?.department ?? '';
+  const userDeptId = useMemo(() => normalizeDepartmentId(profile?.departmentId || profile?.department), [profile?.departmentId, profile?.department]);
+  const deptDef = useMemo(() => normalizeDepartment(userDeptId), [userDeptId]);
+  const userRole = profile?.role as string | undefined;
+  const isSystemAdmin = userRole === 'admin' || profile?.name === 'System Admin' || (!profile?.department && (userRole === 'official' || userRole === 'admin'));
+  const dept = deptDef?.name || profile?.department || (isSystemAdmin ? 'Admin' : 'Department');
 
   const workersQuery = useMemoFirebase(() => {
-    if (!firestore || !dept) return null;
-    return query(collection(firestore, 'users'), where('role', '==', 'worker'), where('department', '==', dept));
-  }, [firestore, dept]);
-  const { data: workers, isLoading: wLoading } = useCollection<UserType>(workersQuery);
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), where('role', '==', 'worker'));
+  }, [firestore]);
+  const { data: rawWorkers, isLoading: wLoading } = useCollection<UserType>(workersQuery);
 
   const reportsQuery = useMemoFirebase(() => {
-    if (!firestore || !dept) return null;
-    return query(collection(firestore, 'reports'), where('department', '==', dept));
-  }, [firestore, dept]);
-  const { data: reports, isLoading: rLoading } = useCollection<Report>(reportsQuery);
+    if (!firestore) return null;
+    return collection(firestore, 'reports');
+  }, [firestore]);
+  const { data: rawReports, isLoading: rLoading } = useCollection<Report>(reportsQuery);
+
+  const workers = useMemo(() => {
+    if (!rawWorkers || !userDeptId) return [];
+    return rawWorkers.filter(w => normalizeDepartmentId(w.departmentId || w.department) === userDeptId);
+  }, [rawWorkers, userDeptId]);
+
+  const reports = useMemo(() => {
+    if (!rawReports || !userDeptId) return [];
+    return rawReports.filter(r => normalizeDepartmentId(r.departmentId || r.department) === userDeptId);
+  }, [rawReports, userDeptId]);
 
   const enriched = useMemo(() => {
     return (workers ?? []).map(w => {
@@ -55,7 +71,7 @@ export default function DeptWorkersPage() {
         <div className="flex items-center gap-3">
           <Users className="h-8 w-8" />
           <div>
-            <h1 className="text-xl font-bold">{dept} Workers</h1>
+            <h1 className="text-xl font-bold">{isSystemAdmin || dept === 'Admin' ? 'All Municipal Workers' : `${dept} Workers`}</h1>
             <p className="text-sm text-white/70">
               {isLoading ? '…' : `${enriched.length} worker${enriched.length !== 1 ? 's' : ''} · ${enriched.filter(w => (w.activeTasks ?? 0) < (w.maxTaskCapacity ?? 5)).length} available`}
             </p>

@@ -1,15 +1,9 @@
 
-export const departments = [
-  'Engineering',
-  'Sanitation',
-  'Electrical',
-  'Water Supply',
-  'Parks & Environment',
-  'Traffic & Roads',
-  'Public Works',
-];
+import { CANONICAL_DEPARTMENTS } from './departments';
 
-// Department configuration with descriptions, icons, and roles
+export const departments = CANONICAL_DEPARTMENTS.map((dept) => dept.name);
+
+// Department configuration with descriptions, icons, and roles derived from canonical source
 export const departmentConfig: Record<
   string,
   {
@@ -19,94 +13,16 @@ export const departmentConfig: Record<
     icon: string;
     roles: string[];
   }
-> = {
-  Engineering: {
-    id: 'dept_engineering',
-    description: 'Handles infrastructure & construction',
-    color: 'bg-blue-500',
-    icon: '🏗️',
-    roles: [
-      'Civil Engineer',
-      'Site Engineer',
-      'Road Repair Technician',
-      'Structural Engineer',
-      'Surveyor',
-      'Junior Engineer',
-      'Maintenance Technician',
-    ],
-  },
-  Sanitation: {
-    id: 'dept_sanitation',
-    description: 'Handles cleanliness & waste management',
-    color: 'bg-green-500',
-    icon: '🚮',
-    roles: [
-      'Sanitation Worker',
-      'Sweeper',
-      'Garbage Collector',
-      'Waste Segregation Staff',
-      'Truck Driver (Garbage Vehicle)',
-      'Supervisor',
-    ],
-  },
-  Electrical: {
-    id: 'dept_electrical',
-    description: 'Handles lighting & electrical systems',
-    color: 'bg-amber-500',
-    icon: '💡',
-    roles: [
-      'Electrician',
-      'Line Technician',
-      'Street Light Technician',
-      'Electrical Engineer',
-      'Maintenance Staff',
-    ],
-  },
-  'Water Supply': {
-    id: 'dept_water',
-    description: 'Handles water systems',
-    color: 'bg-cyan-500',
-    icon: '🚰',
-    roles: [
-      'Plumber',
-      'Pipeline Technician',
-      'Water Supply Engineer',
-      'Pump Operator',
-      'Maintenance Worker',
-    ],
-  },
-  'Parks & Environment': {
-    id: 'dept_parks',
-    description: 'Handles greenery & public parks',
-    color: 'bg-emerald-500',
-    icon: '🌳',
-    roles: [
-      'Gardener',
-      'Tree Maintenance Worker',
-      'Environmental Engineer',
-      'Park Supervisor',
-    ],
-  },
-  'Traffic & Roads': {
-    id: 'dept_traffic',
-    description: 'Handles traffic & signals',
-    color: 'bg-red-500',
-    icon: '🚧',
-    roles: [
-      'Traffic Engineer',
-      'Signal Technician',
-      'Road Safety Officer',
-      'Field Worker',
-    ],
-  },
-  'Public Works': {
-    id: 'dept_public_works',
-    description: 'General infrastructure support',
-    color: 'bg-purple-500',
-    icon: '🏢',
-    roles: ['Project Manager', 'Supervisor', 'Technician', 'Field Worker'],
-  },
-};
+> = CANONICAL_DEPARTMENTS.reduce((acc, dept) => {
+  acc[dept.name] = {
+    id: dept.id,
+    description: dept.description,
+    color: dept.bgColor,
+    icon: dept.icon,
+    roles: dept.roles,
+  };
+  return acc;
+}, {} as Record<string, { id: string; description: string; color: string; icon: string; roles: string[] }>);
 
 // Status colors for admin map understanding
 export const statusColorMap: Record<string, { bg: string; border: string; text: string }> = {
@@ -142,16 +58,11 @@ export const statusColorMap: Record<string, { bg: string; border: string; text: 
   },
 };
 
-// Department colors for visual distinction
-export const departmentColorMap: Record<string, string> = {
-  Engineering: '#3b82f6', // Blue
-  Sanitation: '#22c55e', // Green
-  Electrical: '#f59e0b', // Amber
-  'Water Supply': '#06b6d4', // Cyan
-  'Parks & Environment': '#10b981', // Emerald
-  'Traffic & Roads': '#ef4444', // Red
-  'Public Works': '#a855f7', // Purple
-};
+// Department colors for visual distinction derived from canonical source
+export const departmentColorMap: Record<string, string> = CANONICAL_DEPARTMENTS.reduce((acc, dept) => {
+  acc[dept.name] = dept.color;
+  return acc;
+}, {} as Record<string, string>);
 
 // Map legend configuration for admin dashboard
 export const mapLegendConfig = {

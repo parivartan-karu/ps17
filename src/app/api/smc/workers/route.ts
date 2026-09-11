@@ -7,25 +7,9 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { departments } from '@/lib/constants';
 
 
+import { normalizeDepartment, toDepartmentDisplayAndId } from '@/lib/departments';
+
 export const dynamic = 'force-dynamic';
-const ACCEPTED_DEPARTMENTS = Array.from(new Set([
-  ...departments,
-  'Engineering',
-  'Sanitation',
-  'Electrical',
-  'Water Supply',
-  'Parks & Environment',
-  'Traffic & Roads',
-  'Public Works',
-  'Road Maintenance Department',
-  'Solid Waste Management Department',
-  'Water & Drainage Department',
-  'Electrical Department',
-  'Construction & Public Works Department',
-  'Drainage',
-  'Electricity',
-  'Roads',
-]));
 
 const ACCEPTED_SKILLS = [
   'Garbage',
@@ -129,7 +113,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!ACCEPTED_DEPARTMENTS.includes(department)) {
+    const deptInfo = toDepartmentDisplayAndId(department);
+    if (!deptInfo.departmentId) {
       return NextResponse.json({ error: 'Invalid department.' }, { status: 400 });
     }
 
@@ -177,7 +162,8 @@ export async function POST(request: NextRequest) {
       email: loginEmail,
       role: 'worker',
       points: 0,
-      department,
+      department: deptInfo.department,
+      departmentId: deptInfo.departmentId,
       designation,
       skillType,
       assignedContractor,

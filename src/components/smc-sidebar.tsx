@@ -7,17 +7,52 @@ import { Menu, LogOut, Shield, ChevronRight } from 'lucide-react';
 import { smcNavItems } from '@/lib/nav-items';
 import { cn } from '@/lib/utils';
 import UserNav from './user-nav';
-import { useAuth } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
+import { useFirestore } from '@/firebase/provider';
+import { useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
+import { normalizeDepartment } from '@/lib/departments';
+import type { User as UserProfile } from '@/lib/types';
 import Image from 'next/image';
 
 export default function SmcSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const auth = useAuth();
+  const firestore = useFirestore();
+  const { user } = useUser();
   const { toast } = useToast();
+
+  const userRef = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user?.uid]);
+
+  const { data: profile } = useDoc<UserProfile>(userRef);
+
+  const deptDef = normalizeDepartment(profile?.departmentId || profile?.department);
+  
+  const displayDeptName = profile?.role === 'official'
+    ? 'PMC Central'
+    : deptDef 
+      ? (deptDef.name.toLowerCase().includes('dept') || deptDef.name.toLowerCase().includes('department') ? deptDef.name : `${deptDef.name} Dept`)
+      : 'Department';
+
+  const displayOfficerTitle = profile?.name || (
+    profile?.role === 'official' 
+      ? 'PMC Admin' 
+      : deptDef 
+        ? `${deptDef.name} Officer` 
+        : 'Department Officer'
+  );
+
+  const displaySubtitle = profile?.role === 'official' 
+    ? 'Control Panel' 
+    : deptDef 
+      ? (deptDef.description || 'Manage operations')
+      : 'Control Panel';
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -65,18 +100,22 @@ export default function SmcSidebar() {
         <div className="flex h-full max-h-screen flex-col">
           {/* Header */}
           <div className="flex h-14 items-center gap-2.5 border-b px-4">
-            <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0">
-              <Image
-                src="/logo.png"
-                alt="Garbage Dept Logo"
-                width={36}
-                height={36}
-                className="object-cover"
-              />
+            <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0 text-lg">
+              {deptDef?.icon ? (
+                <span>{deptDef.icon}</span>
+              ) : (
+                <Image
+                  src="/logo.png"
+                  alt={`${displayDeptName} Logo`}
+                  width={36}
+                  height={36}
+                  className="object-cover"
+                />
+              )}
             </div>
-            <div className="flex flex-col">
-              <span className="text-[13px] font-bold tracking-tight">Garbage Dept</span>
-              <span className="text-xs text-muted-foreground">Control Panel</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-[13px] font-bold tracking-tight truncate">{displayDeptName}</span>
+              <span className="text-xs text-muted-foreground truncate">{displaySubtitle}</span>
             </div>
           </div>
           
@@ -90,8 +129,8 @@ export default function SmcSidebar() {
             <div className="flex items-center gap-2.5 rounded-lg bg-muted/50 p-2.5">
               <UserNav />
               <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium">Garbage Officer</p>
-                <p className="text-xs text-muted-foreground">Manage sanitation</p>
+                <p className="truncate text-sm font-medium">{displayOfficerTitle}</p>
+                <p className="truncate text-xs text-muted-foreground">{displaySubtitle}</p>
               </div>
             </div>
             <Button 
@@ -118,18 +157,22 @@ export default function SmcSidebar() {
           <SheetContent side="left" className="flex w-64 flex-col p-0">
             <SheetHeader className="border-b px-4 py-3">
               <SheetTitle className="flex items-center gap-3">
-                <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0">
-                  <Image
-                    src="/logo.png"
-                    alt="Garbage Dept Logo"
-                    width={36}
-                    height={36}
-                    className="object-cover"
-                  />
+                <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0 text-lg">
+                  {deptDef?.icon ? (
+                    <span>{deptDef.icon}</span>
+                  ) : (
+                    <Image
+                      src="/logo.png"
+                      alt={`${displayDeptName} Logo`}
+                      width={36}
+                      height={36}
+                      className="object-cover"
+                    />
+                  )}
                 </div>
-                <div className="flex flex-col items-start">
-                  <span className="text-[13px] font-bold">Garbage Dept</span>
-                  <span className="text-xs text-muted-foreground font-normal">Control Panel</span>
+                <div className="flex flex-col items-start min-w-0">
+                  <span className="text-[13px] font-bold truncate">{displayDeptName}</span>
+                  <span className="text-xs text-muted-foreground font-normal truncate">{displaySubtitle}</span>
                 </div>
               </SheetTitle>
             </SheetHeader>
@@ -149,17 +192,21 @@ export default function SmcSidebar() {
           </SheetContent>
         </Sheet>
         
-        <div className="flex items-center gap-1.5">
-          <div className="relative h-8 w-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0">
-            <Image
-              src="/logo.png"
-              alt="Garbage Dept Logo"
-              width={32}
-              height={32}
-              className="object-cover"
-            />
+        <div className="flex items-center gap-1.5 min-w-0">
+          <div className="relative h-8 w-8 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm flex items-center justify-center shrink-0 text-base">
+            {deptDef?.icon ? (
+              <span>{deptDef.icon}</span>
+            ) : (
+              <Image
+                src="/logo.png"
+                alt={`${displayDeptName} Logo`}
+                width={32}
+                height={32}
+                className="object-cover"
+              />
+            )}
           </div>
-          <span className="text-sm font-semibold">Garbage Dept</span>
+          <span className="text-sm font-semibold truncate max-w-[140px]">{displayDeptName}</span>
         </div>
         
         <div className="flex items-center gap-2">
@@ -177,3 +224,4 @@ export default function SmcSidebar() {
     </>
   );
 }
+

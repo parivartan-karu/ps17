@@ -33,8 +33,10 @@ export function DeptSidebar() {
 
   const { data: profile } = useDoc<UserType>(userRef);
 
-  const dept = profile?.department ?? 'Department';
-  const cfg = departmentConfig[dept];
+  const userRole = profile?.role as string | undefined;
+  const isSystemAdmin = userRole === 'admin' || profile?.name === 'System Admin' || (!profile?.department && (userRole === 'official' || userRole === 'admin'));
+  const dept = profile?.department ? profile.department : (isSystemAdmin ? 'Admin' : 'Department');
+  const cfg = profile?.department ? departmentConfig[profile.department] : null;
 
   if (!user) return null;
 
@@ -44,7 +46,7 @@ export function DeptSidebar() {
       <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between bg-indigo-700 px-4 text-white md:hidden">
         <div className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          <span className="font-bold text-sm truncate max-w-[180px]">{dept} Dept</span>
+          <span className="font-bold text-sm truncate max-w-[180px]">{isSystemAdmin ? 'Admin Portal' : `${dept} Dept`}</span>
         </div>
         <div className="flex gap-2">
           {navItems.map((item) => (
@@ -62,7 +64,7 @@ export function DeptSidebar() {
         <div className="p-5 border-b border-indigo-700">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/15 text-xl">
-              {cfg?.icon ?? '🏛️'}
+              {cfg?.icon ?? (isSystemAdmin ? '🛡️' : '🏛️')}
             </div>
             <div>
               <p className="font-bold text-sm">{dept}</p>

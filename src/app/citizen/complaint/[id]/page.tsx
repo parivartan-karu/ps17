@@ -16,6 +16,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
+import { AgentPipelineVisualization } from '@/components/agent-pipeline-visualization';
 
 const statusColors: Record<string, string> = {
   Submitted: 'bg-blue-500',
@@ -304,6 +305,9 @@ export default function ComplaintDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Agent Pipeline Execution Log */}
+          <AgentPipelineVisualization report={report} />
 
           {/* AI Analysis */}
           {report.aiAnalysis && (

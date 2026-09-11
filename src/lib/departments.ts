@@ -1,0 +1,338 @@
+/**
+ * Canonical Department Definitions & Normalization System for Parivartan
+ * Single source of truth for municipal department domains, IDs, and legacy aliases.
+ */
+
+export type CanonicalDepartmentId =
+  | 'dept_engineering'
+  | 'dept_sanitation'
+  | 'dept_electrical'
+  | 'dept_water'
+  | 'dept_parks'
+  | 'dept_traffic'
+  | 'dept_public_works';
+
+export interface DepartmentDefinition {
+  id: CanonicalDepartmentId;
+  code: string;
+  name: string; // Canonical display name
+  description: string;
+  color: string; // Hex color code
+  bgColor: string; // Tailwind background color class
+  icon: string; // Icon representation
+  roles: string[];
+  serviceCategories: string[];
+  supportedIssueTypes: string[];
+  legacyAliases: string[];
+  headUserIds?: string[];
+  escalationChain?: string[];
+  defaultSlaProfile?: string;
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const CANONICAL_DEPARTMENT_IDS: CanonicalDepartmentId[] = [
+  'dept_engineering',
+  'dept_sanitation',
+  'dept_electrical',
+  'dept_water',
+  'dept_parks',
+  'dept_traffic',
+  'dept_public_works',
+];
+
+export const CANONICAL_DEPARTMENTS: DepartmentDefinition[] = [
+  {
+    id: 'dept_engineering',
+    code: 'ENGINEERING',
+    name: 'Engineering',
+    description: 'Handles infrastructure & construction',
+    color: '#3b82f6',
+    bgColor: 'bg-blue-500',
+    icon: '🏗️',
+    roles: [
+      'Civil Engineer',
+      'Site Engineer',
+      'Road Repair Technician',
+      'Structural Engineer',
+      'Surveyor',
+      'Junior Engineer',
+      'Maintenance Technician',
+    ],
+    serviceCategories: ['infrastructure', 'construction', 'roads', 'potholes'],
+    supportedIssueTypes: ['Pothole', 'Crack', 'Surface failure', 'Bridge repair', 'Structural damage'],
+    legacyAliases: [
+      'engineering',
+      'civil engineering',
+      'road repair',
+      'pothole repair',
+      'engineering dept',
+      'engineering department',
+      'dept_engineering',
+    ],
+    active: true,
+  },
+  {
+    id: 'dept_sanitation',
+    code: 'SANITATION',
+    name: 'Sanitation',
+    description: 'Handles cleanliness & waste management',
+    color: '#22c55e',
+    bgColor: 'bg-green-500',
+    icon: '🚮',
+    roles: [
+      'Sanitation Worker',
+      'Sweeper',
+      'Garbage Collector',
+      'Waste Segregation Staff',
+      'Truck Driver (Garbage Vehicle)',
+      'Supervisor',
+    ],
+    serviceCategories: ['garbage', 'cleanliness', 'waste_management', 'dumping'],
+    supportedIssueTypes: ['Garbage/Debris', 'Illegal Dumping', 'Overflowing Bin', 'Uncleaned Street', 'Dead Animal'],
+    legacyAliases: [
+      'sanitation',
+      'solid waste management department',
+      'solid waste management',
+      'waste management',
+      'garbage',
+      'garbage dept',
+      'sanitation department',
+      'cleanliness',
+      'solid waste',
+      'garbage department',
+      'dept_sanitation',
+    ],
+    active: true,
+  },
+  {
+    id: 'dept_electrical',
+    code: 'ELECTRICAL',
+    name: 'Electrical',
+    description: 'Handles lighting & electrical systems',
+    color: '#f59e0b',
+    bgColor: 'bg-amber-500',
+    icon: '💡',
+    roles: [
+      'Electrician',
+      'Line Technician',
+      'Street Light Technician',
+      'Electrical Engineer',
+      'Maintenance Staff',
+    ],
+    serviceCategories: ['lighting', 'power', 'streetlights'],
+    supportedIssueTypes: ['Street light', 'Streetlight Issue', 'Power outage', 'Exposed wire', 'Transformer issue'],
+    legacyAliases: [
+      'electrical',
+      'electrical department',
+      'lighting',
+      'street light',
+      'street light department',
+      'power',
+      'electrical dept',
+      'dept_electrical',
+    ],
+    active: true,
+  },
+  {
+    id: 'dept_water',
+    code: 'WATER_SUPPLY',
+    name: 'Water Supply',
+    description: 'Handles water systems',
+    color: '#06b6d4',
+    bgColor: 'bg-cyan-500',
+    icon: '🚰',
+    roles: [
+      'Plumber',
+      'Pipeline Technician',
+      'Water Supply Engineer',
+      'Pump Operator',
+      'Maintenance Worker',
+    ],
+    serviceCategories: ['water', 'drainage', 'plumbing', 'sewage'],
+    supportedIssueTypes: ['Water-logged damage', 'Manhole issue', 'Water leak', 'Pipe burst', 'Low water pressure', 'Contaminated water'],
+    legacyAliases: [
+      'water supply',
+      'water & drainage department',
+      'water department',
+      'water',
+      'drainage',
+      'plumbing',
+      'water and drainage',
+      'water supply department',
+      'dept_water',
+    ],
+    active: true,
+  },
+  {
+    id: 'dept_parks',
+    code: 'PARKS_ENVIRONMENT',
+    name: 'Parks & Environment',
+    description: 'Handles greenery & public parks',
+    color: '#10b981',
+    bgColor: 'bg-emerald-500',
+    icon: '🌳',
+    roles: [
+      'Gardener',
+      'Tree Maintenance Worker',
+      'Environmental Engineer',
+      'Park Supervisor',
+    ],
+    serviceCategories: ['parks', 'greenery', 'trees', 'environment'],
+    supportedIssueTypes: ['Fallen Tree', 'Fallen Branch', 'Overgrown Vegetation', 'Park Maintenance', 'Garbage in Park'],
+    legacyAliases: [
+      'parks & environment',
+      'parks and environment',
+      'parks',
+      'environment',
+      'greenery',
+      'horticulture',
+      'parks department',
+      'parks & environment department',
+      'dept_parks',
+    ],
+    active: true,
+  },
+  {
+    id: 'dept_traffic',
+    code: 'TRAFFIC_ROADS',
+    name: 'Traffic & Roads',
+    description: 'Handles traffic & signals',
+    color: '#ef4444',
+    bgColor: 'bg-red-500',
+    icon: '🚧',
+    roles: [
+      'Traffic Engineer',
+      'Signal Technician',
+      'Road Safety Officer',
+      'Field Worker',
+    ],
+    serviceCategories: ['traffic', 'signals', 'road_safety', 'signage'],
+    supportedIssueTypes: ['Traffic signal', 'Road marking', 'Damaged Signboard', 'Traffic Congestion Point', 'Illegal Barrier'],
+    legacyAliases: [
+      'traffic & roads',
+      'traffic and roads',
+      'road maintenance department',
+      'traffic department',
+      'traffic',
+      'signals',
+      'traffic & signal',
+      'traffic & roads department',
+      'dept_traffic',
+    ],
+    active: true,
+  },
+  {
+    id: 'dept_public_works',
+    code: 'PUBLIC_WORKS',
+    name: 'Public Works',
+    description: 'General infrastructure support',
+    color: '#a855f7',
+    bgColor: 'bg-purple-500',
+    icon: '🏢',
+    roles: ['Project Manager', 'Supervisor', 'Technician', 'Field Worker'],
+    serviceCategories: ['public_works', 'general_infrastructure', 'civic_buildings'],
+    supportedIssueTypes: ['Public Property Damage', 'Footpath Issue', 'Civic Building Maintenance', 'General Infrastructure'],
+    legacyAliases: [
+      'public works',
+      'construction & public works department',
+      'public works department',
+      'pwd',
+      'public works dept',
+      'dept_public_works',
+    ],
+    active: true,
+  },
+];
+
+export const CANONICAL_DEPARTMENT_MAP: Record<CanonicalDepartmentId, DepartmentDefinition> = CANONICAL_DEPARTMENTS.reduce(
+  (acc, dept) => {
+    acc[dept.id] = dept;
+    return acc;
+  },
+  {} as Record<CanonicalDepartmentId, DepartmentDefinition>
+);
+
+/**
+ * Normalizes an arbitrary string (ID, canonical name, or legacy alias) into a Canonical DepartmentDefinition.
+ */
+export function normalizeDepartment(input?: string | null): DepartmentDefinition | null {
+  if (!input) return null;
+  const raw = input.trim();
+  if (!raw) return null;
+
+  // 1. Direct ID match
+  if (raw in CANONICAL_DEPARTMENT_MAP) {
+    return CANONICAL_DEPARTMENT_MAP[raw as CanonicalDepartmentId];
+  }
+
+  const normalizedKey = raw.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  // 2. Match against canonical departments and all legacy aliases
+  for (const dept of CANONICAL_DEPARTMENTS) {
+    const canonicalNameKey = dept.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const canonicalIdKey = dept.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const canonicalCodeKey = dept.code.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    if (
+      normalizedKey === canonicalNameKey ||
+      normalizedKey === canonicalIdKey ||
+      normalizedKey === canonicalCodeKey
+    ) {
+      return dept;
+    }
+
+    for (const alias of dept.legacyAliases) {
+      const aliasKey = alias.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (normalizedKey === aliasKey) {
+        return dept;
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normalizes an arbitrary department string into its canonical ID.
+ */
+export function normalizeDepartmentId(input?: string | null): CanonicalDepartmentId | null {
+  return normalizeDepartment(input)?.id ?? null;
+}
+
+/**
+ * Lookup department definition by ID.
+ */
+export function getDepartmentById(id?: string | null): DepartmentDefinition | null {
+  return normalizeDepartment(id);
+}
+
+/**
+ * Lookup department definition by display name or alias.
+ */
+export function getDepartmentByName(name?: string | null): DepartmentDefinition | null {
+  return normalizeDepartment(name);
+}
+
+/**
+ * Resolves both authoritative departmentId and canonical display name from input.
+ */
+export function toDepartmentDisplayAndId(input?: string | null): {
+  department: string;
+  departmentId: CanonicalDepartmentId;
+} | {
+  department: string;
+  departmentId?: undefined;
+} {
+  const dept = normalizeDepartment(input);
+  if (dept) {
+    return {
+      department: dept.name,
+      departmentId: dept.id,
+    };
+  }
+  return {
+    department: input?.trim() || 'Unassigned',
+  };
+}

@@ -5,25 +5,9 @@ import { requireRequestIdentity, RequestAuthError } from '@/lib/server-auth';
 import { departments } from '@/lib/constants';
 
 
+import { normalizeDepartment, toDepartmentDisplayAndId } from '@/lib/departments';
+
 export const dynamic = 'force-dynamic';
-const ACCEPTED_DEPARTMENTS = Array.from(new Set([
-  ...departments,
-  'Engineering',
-  'Sanitation',
-  'Electrical',
-  'Water Supply',
-  'Parks & Environment',
-  'Traffic & Roads',
-  'Public Works',
-  'Road Maintenance Department',
-  'Solid Waste Management Department',
-  'Water & Drainage Department',
-  'Electrical Department',
-  'Construction & Public Works Department',
-  'Drainage',
-  'Electricity',
-  'Roads',
-]));
 
 function normalizeSegment(value: string) {
   return value.trim().replace(/\s+/g, ' ');
@@ -45,7 +29,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required contractor fields.' }, { status: 400 });
     }
 
-    if (!ACCEPTED_DEPARTMENTS.includes(department)) {
+    const deptInfo = toDepartmentDisplayAndId(department);
+    if (!deptInfo.departmentId) {
       return NextResponse.json({ error: 'Invalid department.' }, { status: 400 });
     }
 
@@ -65,7 +50,8 @@ export async function POST(request: NextRequest) {
       name,
       phoneNumber,
       email: email || null,
-      department,
+      department: deptInfo.department,
+      departmentId: deptInfo.departmentId,
       wardArea: wardArea || null,
       createdAt: new Date().toISOString(),
     });

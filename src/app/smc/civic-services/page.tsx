@@ -208,7 +208,7 @@ export default function CivicServicesAdminPage() {
           <div className="pointer-events-none absolute -bottom-8 left-20 h-32 w-32 rounded-full bg-teal-300/20 blur-xl" />
 
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60 mb-1">
-            Garbage Dept Panel
+            Department Operations Panel
           </p>
           <h1 className="text-2xl font-extrabold tracking-tight">Civic Service Registry</h1>
           <p className="text-sm text-white/65 mt-1">

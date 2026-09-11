@@ -11,6 +11,7 @@ import { useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import { doc } from 'firebase/firestore';
 import type { Report, User as UserType } from '@/lib/types';
+import { normalizeDepartment, normalizeDepartmentId } from '@/lib/departments';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,22 +41,36 @@ export default function DeptDashboardPage() {
     return doc(firestore, 'users', user.uid);
   }, [firestore, user?.uid]);
   const { data: profile } = useDoc<UserType>(profileRef);
-  const dept = profile?.department ?? '';
+  const userDeptId = useMemo(() => normalizeDepartmentId(profile?.departmentId || profile?.department), [profile?.departmentId, profile?.department]);
+  const deptDef = useMemo(() => normalizeDepartment(userDeptId), [userDeptId]);
+  const userRole = profile?.role as string | undefined;
+  const isSystemAdmin = userRole === 'admin' || profile?.name === 'System Admin' || (!profile?.department && (userRole === 'official' || userRole === 'admin'));
+  const dept = deptDef?.name || profile?.department || (isSystemAdmin ? 'Admin' : 'Department');
 
   const complaintsQuery = useMemoFirebase(() => {
-    if (!firestore || !dept) return null;
-    return query(collection(firestore, 'reports'), where('department', '==', dept));
-  }, [firestore, dept]);
-  const { data: reports, isLoading } = useCollection<Report>(complaintsQuery);
+    if (!firestore) return null;
+    return collection(firestore, 'reports');
+  }, [firestore]);
+  const { data: rawReports, isLoading } = useCollection<Report>(complaintsQuery);
 
   const workersQuery = useMemoFirebase(() => {
-    if (!firestore || !dept) return null;
-    return query(collection(firestore, 'users'), where('role', '==', 'worker'), where('department', '==', dept));
-  }, [firestore, dept]);
-  const { data: workers } = useCollection<UserType>(workersQuery);
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), where('role', '==', 'worker'));
+  }, [firestore]);
+  const { data: rawWorkers } = useCollection<UserType>(workersQuery);
+
+  const reports = useMemo(() => {
+    if (!rawReports || !userDeptId) return [];
+    return rawReports.filter(r => normalizeDepartmentId(r.departmentId || r.department) === userDeptId);
+  }, [rawReports, userDeptId]);
+
+  const workers = useMemo(() => {
+    if (!rawWorkers || !userDeptId) return [];
+    return rawWorkers.filter(w => normalizeDepartmentId(w.departmentId || w.department) === userDeptId);
+  }, [rawWorkers, userDeptId]);
 
   const stats = useMemo(() => {
-    if (!reports) return null;
+    if (isLoading || !reports) return null;
     const total = reports.length;
     const pending = reports.filter(r => ['Submitted', 'Under Verification'].includes(r.status)).length;
     const inProgress = reports.filter(r => ['Assigned', 'In Progress'].includes(r.status)).length;
@@ -63,7 +78,7 @@ export default function DeptDashboardPage() {
     const critical = reports.filter(r => r.priority === 'Critical' && r.status !== 'Resolved').length;
     const resolutionRate = total > 0 ? Math.round((resolved / total) * 100) : 0;
     return { total, pending, inProgress, resolved, critical, resolutionRate };
-  }, [reports]);
+  }, [reports, isLoading]);
 
   const recentPending = useMemo(() => {
     return (reports ?? [])
@@ -86,7 +101,7 @@ export default function DeptDashboardPage() {
         <div className="flex items-center gap-3 mb-2">
           <Building2 className="h-7 w-7" />
           <div>
-            <h1 className="text-xl font-bold">{dept || 'Department'} Portal</h1>
+            <h1 className="text-xl font-bold">{isSystemAdmin || dept === 'Admin' ? 'Admin Portal' : `${dept} Portal`}</h1>
             <p className="text-sm text-white/70">Welcome, {profile?.name ?? 'Officer'}</p>
           </div>
         </div>

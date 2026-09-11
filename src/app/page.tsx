@@ -604,7 +604,7 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              {/* Portal 3: Garbage Dept Portal */}
+              {/* Portal 3: Department Portal */}
               <div className="flex flex-col bg-white rounded-2xl border-2 border-blue-200 hover:border-blue-500 shadow-md hover:shadow-2xl transition-all duration-300 p-6 hover:-translate-y-1 group">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform mb-5">
                   <BarChart3 className="w-7 h-7" />
@@ -612,14 +612,14 @@ export default function LandingPage() {
                 <div className="inline-block self-start text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 mb-2">
                   Sanitation & Garbage
                 </div>
-                <h3 className="text-xl font-bold text-slate-900">Garbage Dept Portal</h3>
-                <p className="text-xs text-slate-500 font-semibold mb-3">Sanitation Officers & Crew</p>
+                <h3 className="text-xl font-bold text-slate-900">Department Portal</h3>
+                <p className="text-xs text-slate-500 font-semibold mb-3">Department Officers & Crew</p>
                 <p className="text-xs text-slate-600 leading-relaxed flex-1">
-                  Verify garbage complaints, manage collection teams, monitor ward heatmaps, and approve garbage clearance tasks.
+                  Verify municipal complaints, manage field collection teams, monitor ward heatmaps, and approve clearance tasks.
                 </p>
                 <div className="mt-6 pt-4 border-t border-slate-100 space-y-2">
                   <Button asChild className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold h-11 rounded-xl shadow-md">
-                    <Link href="/smc/login">Garbage Dept Login</Link>
+                    <Link href="/smc/login">Department Login</Link>
                   </Button>
                 </div>
               </div>

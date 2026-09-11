@@ -207,6 +207,12 @@ export default function SmcAnalyticsPage() {
       .sort((a, b) => b.resolvedCount - a.resolvedCount)
       .slice(0, 8);
 
+    const slaBreachedCount = rangeReports.filter(r => r.slaBreached).length;
+    const escalationLevel1Count = rangeReports.filter(r => r.escalationLevel === 1).length;
+    const escalationLevel2Count = rangeReports.filter(r => (r.escalationLevel ?? 0) >= 2).length;
+    const totalBreachedOrEscalated = rangeReports.filter(r => r.slaBreached || (r.escalationLevel ?? 0) > 0).length;
+    const slaComplianceRate = rangeReports.length > 0 ? Math.round(((rangeReports.length - slaBreachedCount) / rangeReports.length) * 100) : 100;
+
     return {
       rangeReports,
       filteredReports,
@@ -224,6 +230,11 @@ export default function SmcAnalyticsPage() {
       totalReports: filteredReports.length,
       activeCount: activeReports.length,
       resolvedCount: resolvedReports.length,
+      slaBreachedCount,
+      escalationLevel1Count,
+      escalationLevel2Count,
+      totalBreachedOrEscalated,
+      slaComplianceRate,
     };
   }, [reports, statusScope, timeRange]);
 
@@ -323,12 +334,22 @@ export default function SmcAnalyticsPage() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Reports in Scope</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">SLA Compliance Rate</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.totalReports}</div>
-            <p className="text-xs text-muted-foreground">Matching the selected time and status filters.</p>
+            <div className="text-2xl font-bold text-emerald-600">{analyticsData.slaComplianceRate}%</div>
+            <p className="text-xs text-muted-foreground">{analyticsData.slaBreachedCount} total deadline breaches.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Escalations</CardTitle>
+            <Clock className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{analyticsData.totalBreachedOrEscalated}</div>
+            <p className="text-xs text-muted-foreground">L1: {analyticsData.escalationLevel1Count} | L2+: {analyticsData.escalationLevel2Count}</p>
           </CardContent>
         </Card>
         <Card>
@@ -338,17 +359,7 @@ export default function SmcAnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{analyticsData.activeCount}</div>
-            <p className="text-xs text-muted-foreground">Reports that still need action from teams.</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved Rate</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.resolutionRate}%</div>
-            <p className="text-xs text-muted-foreground">Resolved complaints in the current scope.</p>
+            <p className="text-xs text-muted-foreground">Reports requiring action from field teams.</p>
           </CardContent>
         </Card>
         <Card>

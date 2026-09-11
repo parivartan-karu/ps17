@@ -100,12 +100,34 @@ export default function SmcWorkersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2"><HardHat /> Worker Roster</CardTitle>
+          <CardTitle className="flex items-center gap-2"><HardHat /> Worker Roster & Utilization</CardTitle>
           <CardDescription>
-            A list of all registered field workers.
+            A list of all registered field personnel with real-time capacity and active task load metrics.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          {/* Utilization Stats Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {(() => {
+              const totalW = (workers || []).length;
+              const activeTaskSum = (workers || []).reduce((acc, w) => acc + (w.activeTasks ?? 0), 0);
+              const totalCapSum = (workers || []).reduce((acc, w) => acc + (w.maxTaskCapacity ?? 5), 0);
+              const utilRate = totalCapSum > 0 ? Math.round((activeTaskSum / totalCapSum) * 100) : 0;
+              const availableCount = (workers || []).filter(w => (w.activeTasks ?? 0) < (w.maxTaskCapacity ?? 5)).length;
+
+              return [
+                { label: 'Total Staff', value: totalW, color: 'text-purple-600 bg-purple-50 border-purple-200' },
+                { label: 'Utilization Rate', value: `${utilRate}%`, color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
+                { label: 'Available Staff', value: availableCount, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
+                { label: 'At Capacity', value: totalW - availableCount, color: 'text-red-600 bg-red-50 border-red-200' },
+              ].map((s) => (
+                <div key={s.label} className={`rounded-xl border p-3 ${s.color}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{s.label}</p>
+                  <p className="text-2xl font-black mt-1">{s.value}</p>
+                </div>
+              ));
+            })()}
+          </div>
           <div className="mb-6 grid gap-3 md:grid-cols-3">
             <Select value={organizationFilter} onValueChange={setOrganizationFilter}>
               <SelectTrigger>

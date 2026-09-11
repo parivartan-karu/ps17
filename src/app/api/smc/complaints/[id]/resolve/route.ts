@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/firebase/server';
-import { requireRequestIdentity, RequestAuthError } from '@/lib/server-auth';
+import { requireRequestIdentity, requireDepartmentAccess, RequestAuthError } from '@/lib/server-auth';
 import type { Report, ReportStatus } from '@/lib/types';
+import { validateStatusTransition } from '@/lib/state-machine';
 import { isGenuineResolvedReport, getRewardOffer, buildRewardNotificationText } from '@/lib/reward-utils';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -64,6 +65,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       }
 
       const currentReport = reportDoc.data() as Report;
+      requireDepartmentAccess(currentReport, identity);
+      
+      // Authoritative State Machine Validation (Phase 5)
+      const transitionResult = validateStatusTransition(currentReport.status, newStatus);
+      if (!transitionResult.valid) {
+        throw new Error(transitionResult.reason || 'Invalid status transition.');
+      }
+
       const isBeingResolved = newStatus === 'Resolved' && currentReport.status !== 'Resolved';
 
       const statusUpdatePayload: Record<string, unknown> = {

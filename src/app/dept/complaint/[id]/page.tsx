@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import { useToast } from '@/hooks/use-toast';
+import { AgentPipelineVisualization } from '@/components/agent-pipeline-visualization';
 
 const NEXT_STATUSES: Partial<Record<ReportStatus, ReportStatus[]>> = {
   Submitted: ['Under Verification', 'Rejected'],
@@ -282,6 +283,9 @@ export default function DeptComplaintDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Agent Pipeline Execution Log */}
+      <AgentPipelineVisualization report={report} isAdminView={true} />
 
       {/* AI Analysis */}
       {report.aiAnalysis && (
