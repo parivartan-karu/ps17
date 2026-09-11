@@ -142,7 +142,7 @@ export function AgentPipelineVisualization({ report, isAdminView = false }: Agen
             </div>
           </div>
           <Badge className="bg-indigo-500/20 text-indigo-300 border-indigo-400/30 text-[10px] font-mono uppercase tracking-wider">
-            Live Hackathon Demo Mode
+            Live Triage Engine
           </Badge>
         </div>
       </CardHeader>
