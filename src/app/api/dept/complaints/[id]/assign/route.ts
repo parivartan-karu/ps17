@@ -54,8 +54,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
       const reportDeptId = normalizeDepartmentId(reportData.departmentId || reportData.department);
       const workerDeptId = normalizeDepartmentId(workerData.departmentId || workerData.department);
-      if (reportDeptId && workerDeptId && reportDeptId !== workerDeptId) {
-        throw new Error(`Worker belongs to department "${workerData.department || workerDeptId}", but report requires "${reportData.department || reportDeptId}".`);
+      if (!reportDeptId || !workerDeptId || reportDeptId !== workerDeptId) {
+        throw new Error(`Cross-department assignment prohibited: Worker belongs to department "${workerData.department || workerDeptId}", but complaint requires "${reportData.department || reportDeptId}".`);
       }
 
       const active = workerData.activeTasks ?? 0;

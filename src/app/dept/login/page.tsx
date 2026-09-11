@@ -34,7 +34,7 @@ export default function DeptLoginPage() {
       const userDoc = await getDoc(doc(firestore, 'users', cred.user.uid));
       const role = userDoc.data()?.role;
 
-      if (role !== 'department_head' && role !== 'official') {
+      if (role !== 'department_head' && role !== 'official' && role !== 'admin') {
         await signOut(auth);
         throw new Error('This account is not authorized for department access.');
       }

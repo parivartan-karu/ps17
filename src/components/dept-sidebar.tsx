@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard, ClipboardList, Users, LogOut, Building2, Bell,
+  LayoutDashboard, ClipboardList, Users, LogOut, Building2, Bell, BarChart3,
 } from 'lucide-react';
 import { signOut } from 'firebase/auth';
 import { useAuth, useUser } from '@/firebase';
@@ -17,6 +17,7 @@ const navItems = [
   { href: '/dept/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dept/complaints', label: 'Complaints', icon: ClipboardList },
   { href: '/dept/workers', label: 'Workers', icon: Users },
+  { href: '/dept/analytics', label: 'Analytics', icon: BarChart3 },
 ];
 
 export function DeptSidebar() {
@@ -68,7 +69,7 @@ export function DeptSidebar() {
             </div>
             <div>
               <p className="font-bold text-sm">{dept}</p>
-              <p className="text-xs text-indigo-300">Admin Portal</p>
+              <p className="text-xs text-indigo-300">Department Portal</p>
             </div>
           </div>
           {profile?.name && (

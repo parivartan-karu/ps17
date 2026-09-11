@@ -54,12 +54,12 @@ const quickAnswers: Record<string, string> = {
 export const chatbotFlow = ai.defineFlow(
   {
     name: 'chatbotFlow',
-    inputSchema: ChatbotInputSchema,
-    outputSchema: ChatbotOutputSchema,
+    inputSchema: ChatbotInputSchema as any,
+    outputSchema: ChatbotOutputSchema as any,
   },
   async (input) => {
     // Get the last user message
-    const userMessages = input.history.filter((m) => m.role === 'user');
+    const userMessages = input.history.filter((m: any) => m.role === 'user');
     const lastUserMessageContent = userMessages.length > 0 ? userMessages[userMessages.length - 1].content : '';
 
     // Check for exact quick answer matches first
@@ -153,7 +153,7 @@ If a user asks something you don't know, say "I don't have detailed information 
 `;
 
     try {
-      const historyForGenkit = input.history.map(msg => ({
+      const historyForGenkit = input.history.map((msg: any) => ({
         role: msg.role,
         content: [{ text: msg.content }],
       }));

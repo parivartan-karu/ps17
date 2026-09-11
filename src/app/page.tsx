@@ -3,8 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { doc } from 'firebase/firestore';
+
 import {
   ArrowRight,
   ChevronLeft,
@@ -54,8 +53,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useUser, useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import type { User as UserProfile } from '@/lib/types';
 import GoogleTranslate from '@/components/GoogleTranslate';
 import { saveLanguage, triggerTranslation, getStoredLanguage } from '@/lib/translate-utils';
 import AnimatedHamburger from '@/components/AnimatedHamburger';
@@ -178,34 +175,9 @@ export default function LandingPage() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-  const router = useRouter();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
 
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userDocRef);
 
-  function getPortalPath(role?: UserProfile['role']): string {
-    if (role === 'worker') return '/worker/dashboard';
-    if (role === 'official' || role === 'department_head') return '/smc/dashboard';
-    return '/citizen/dashboard';
-  }
-
-  // Redirect to correct portal if user has visited before
-  useEffect(() => {
-    if (!isUserLoading && !isProfileLoading && user && userProfile !== undefined) {
-      const hasVisitedBefore = localStorage.getItem('parivartan_visited');
-      if (hasVisitedBefore) {
-        router.push(getPortalPath(userProfile?.role));
-      } else {
-        localStorage.setItem('parivartan_visited', 'true');
-      }
-    }
-  }, [user, isUserLoading, userProfile, isProfileLoading, router]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -245,8 +217,8 @@ export default function LandingPage() {
       {/* TOP NAVBAR (Transparent at start, White on Scroll with Logo Appearance) */}
       <header
         className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300 ${isScrolled
-            ? 'bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-md text-slate-900 py-2.5'
-            : 'bg-transparent border-b border-transparent text-white py-4'
+          ? 'bg-white/95 backdrop-blur-xl border-b border-slate-200 shadow-md text-slate-900 py-2.5'
+          : 'bg-transparent border-b border-transparent text-white py-4'
           }`}
       >
         <div className="max-w-7xl mx-auto flex h-14 sm:h-16 items-center justify-between px-4 sm:px-6">
@@ -254,8 +226,8 @@ export default function LandingPage() {
           <Link
             href="/"
             className={`flex items-center gap-3 group transition-all duration-300 ${isScrolled
-                ? 'opacity-100 translate-x-0 pointer-events-auto'
-                : 'opacity-0 -translate-x-4 pointer-events-none'
+              ? 'opacity-100 translate-x-0 pointer-events-auto'
+              : 'opacity-0 -translate-x-4 pointer-events-none'
               }`}
           >
             <div className="relative h-10 w-10 shrink-0 drop-shadow-sm">
@@ -284,8 +256,8 @@ export default function LandingPage() {
                 type="button"
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all border shadow-xs ${isScrolled
-                    ? 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
-                    : 'bg-white/15 hover:bg-white/25 backdrop-blur-md border-white/20 text-white'
+                  ? 'bg-white hover:bg-slate-50 border-slate-200 text-slate-800'
+                  : 'bg-white/15 hover:bg-white/25 backdrop-blur-md border-white/20 text-white'
                   }`}
                 aria-label="Select Language"
               >
@@ -302,8 +274,8 @@ export default function LandingPage() {
                       setLangDropdownOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-between transition-colors ${currentLang === 'en'
-                        ? 'bg-rose-50 text-rose-700 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-rose-50 text-rose-700 font-bold'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                   >
                     <span>English</span>
@@ -316,8 +288,8 @@ export default function LandingPage() {
                       setLangDropdownOpen(false);
                     }}
                     className={`w-full text-left px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold flex items-center justify-between transition-colors ${currentLang === 'mr'
-                        ? 'bg-rose-50 text-rose-700 font-bold'
-                        : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-rose-50 text-rose-700 font-bold'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
                       }`}
                   >
                     <span>मराठी (Marathi)</span>

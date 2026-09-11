@@ -14,11 +14,20 @@ export type AgentLogEntry = {
 
 export const CANONICAL_CATEGORIES = [
   'Pothole',
+  'Road Cracks and Surface Damage',
   'Crack',
   'Surface failure',
+  'Damaged Road',
+  'Damaged Footpath',
+  'Footpath Issue',
+  'Road Safety Hazard',
   'Garbage/Debris',
+  'Garbage Accumulation',
   'Illegal Dumping',
+  'Overflowing Bins',
   'Overflowing Bin',
+  'Uncollected Garbage',
+  'Waste-related Drainage Blockage',
   'Uncleaned Street',
   'Dead Animal',
   'Streetlight Issue',
@@ -32,7 +41,6 @@ export const CANONICAL_CATEGORIES = [
   'Overgrown Vegetation',
   'Traffic signal',
   'Damaged Signboard',
-  'Footpath Issue',
   'Public Property Damage',
   'General Infrastructure',
 ] as const;
@@ -40,29 +48,38 @@ export const CANONICAL_CATEGORIES = [
 export type CanonicalCategory = (typeof CANONICAL_CATEGORIES)[number];
 
 export const CATEGORY_DEPARTMENT_MAP: Record<string, CanonicalDepartmentId> = {
-  // Sanitation
+  // Sanitation (Garbage & Waste Management)
   'Garbage/Debris': 'dept_sanitation',
+  'Garbage Accumulation': 'dept_sanitation',
   'Illegal Dumping': 'dept_sanitation',
+  'Overflowing Bins': 'dept_sanitation',
   'Overflowing Bin': 'dept_sanitation',
+  'Uncollected Garbage': 'dept_sanitation',
+  'Waste-related Drainage Blockage': 'dept_sanitation',
   'Uncleaned Street': 'dept_sanitation',
   'Dead Animal': 'dept_sanitation',
   'Garbage in Park': 'dept_sanitation',
 
-  // Engineering
+  // Engineering & Roads
   'Pothole': 'dept_engineering',
+  'Road Cracks and Surface Damage': 'dept_engineering',
   'Crack': 'dept_engineering',
   'Surface failure': 'dept_engineering',
+  'Damaged Road': 'dept_engineering',
+  'Damaged Footpath': 'dept_engineering',
+  'Footpath Issue': 'dept_engineering',
+  'Road Safety Hazard': 'dept_engineering',
   'Bridge repair': 'dept_engineering',
   'Structural damage': 'dept_engineering',
 
-  // Electrical
+  // Electrical (Streetlight & Power)
   'Street light': 'dept_electrical',
   'Streetlight Issue': 'dept_electrical',
   'Power outage': 'dept_electrical',
   'Exposed wire': 'dept_electrical',
   'Transformer issue': 'dept_electrical',
 
-  // Water Supply
+  // Water Supply & Drainage
   'Water-logged damage': 'dept_water',
   'Manhole issue': 'dept_water',
   'Water leak': 'dept_water',
@@ -76,7 +93,7 @@ export const CATEGORY_DEPARTMENT_MAP: Record<string, CanonicalDepartmentId> = {
   'Overgrown Vegetation': 'dept_parks',
   'Park Maintenance': 'dept_parks',
 
-  // Traffic & Roads
+  // Traffic & Signals
   'Traffic signal': 'dept_traffic',
   'Road marking': 'dept_traffic',
   'Damaged Signboard': 'dept_traffic',
@@ -85,7 +102,6 @@ export const CATEGORY_DEPARTMENT_MAP: Record<string, CanonicalDepartmentId> = {
 
   // Public Works
   'Public Property Damage': 'dept_public_works',
-  'Footpath Issue': 'dept_public_works',
   'Civic Building Maintenance': 'dept_public_works',
   'General Infrastructure': 'dept_public_works',
 };
@@ -108,16 +124,40 @@ export function validateCategory(categoryInput?: string | null): string {
   }
 
   // Synonym / substring matching
-  if (lower.includes('garbage') || lower.includes('trash') || lower.includes('waste') || lower.includes('dump')) {
+  if (lower.includes('uncollected') && (lower.includes('garbage') || lower.includes('waste') || lower.includes('trash'))) {
+    return 'Uncollected Garbage';
+  }
+  if (lower.includes('waste') && lower.includes('drain')) {
+    return 'Waste-related Drainage Blockage';
+  }
+  if (lower.includes('overflow') && (lower.includes('bin') || lower.includes('dumpster'))) {
+    return 'Overflowing Bins';
+  }
+  if (lower.includes('accumulation') && (lower.includes('garbage') || lower.includes('waste') || lower.includes('rubbish'))) {
+    return 'Garbage Accumulation';
+  }
+  if (lower.includes('garbage') || lower.includes('trash') || lower.includes('waste') || lower.includes('dump') || lower.includes('rubbish') || lower.includes('litter')) {
     return lower.includes('dump') ? 'Illegal Dumping' : 'Garbage/Debris';
+  }
+  if (lower.includes('footpath') || lower.includes('sidewalk') || lower.includes('pavement')) {
+    return 'Damaged Footpath';
+  }
+  if (lower.includes('hazard') || (lower.includes('safety') && lower.includes('road'))) {
+    return 'Road Safety Hazard';
   }
   if (lower.includes('pothole') || lower.includes('hole')) {
     return 'Pothole';
   }
-  if (lower.includes('light') || lower.includes('lamp') || lower.includes('pole')) {
+  if (lower.includes('crack') || lower.includes('surface')) {
+    return 'Road Cracks and Surface Damage';
+  }
+  if (lower.includes('damaged road') || lower.includes('road damage') || lower.includes('broken road')) {
+    return 'Damaged Road';
+  }
+  if (lower.includes('light') || lower.includes('lamp') || lower.includes('pole') || lower.includes('wire')) {
     return 'Streetlight Issue';
   }
-  if (lower.includes('water') || lower.includes('leak') || lower.includes('flood') || lower.includes('drain')) {
+  if (lower.includes('water') || lower.includes('leak') || lower.includes('flood') || lower.includes('pipe') || lower.includes('manhole')) {
     return lower.includes('flood') || lower.includes('log') ? 'Water-logged damage' : 'Water leak';
   }
   if (lower.includes('tree') || lower.includes('branch') || lower.includes('park') || lower.includes('plant')) {
@@ -125,9 +165,6 @@ export function validateCategory(categoryInput?: string | null): string {
   }
   if (lower.includes('signal') || lower.includes('sign') || lower.includes('traffic')) {
     return 'Traffic signal';
-  }
-  if (lower.includes('footpath') || lower.includes('pavement') || lower.includes('sidewalk')) {
-    return 'Footpath Issue';
   }
 
   return 'General Infrastructure';

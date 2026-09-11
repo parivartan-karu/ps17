@@ -22,8 +22,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { buildAuthHeaders } from '@/lib/client-auth';
-import { useToast } from '@/hooks/use-toast';
 import { AgentPipelineVisualization } from '@/components/agent-pipeline-visualization';
+import { SmartWorkerSelector } from '@/components/smart-worker-selector';
+import { IncidentConsolidationBanner } from '@/components/incident-consolidation-banner';
+import { DepartmentVerificationPanel } from '@/components/department-verification-panel';
+import { ExplainableAiCard } from '@/components/explainable-ai-card';
+import { useToast } from '@/hooks/use-toast';
 
 const NEXT_STATUSES: Partial<Record<ReportStatus, ReportStatus[]>> = {
   Submitted: ['Under Verification', 'Rejected'],
@@ -182,6 +186,12 @@ export default function DeptComplaintDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Incident & Duplicate Consolidation Banner */}
+      <IncidentConsolidationBanner report={report} />
+
+      {/* Department Verification & Evidence Panel */}
+      <DepartmentVerificationPanel report={report} />
+
       {/* Action panel */}
       {!['Resolved', 'Rejected'].includes(report.status) && (
         <Card className="border-0 shadow-sm border-l-4 border-l-indigo-500">
@@ -189,29 +199,15 @@ export default function DeptComplaintDetailPage() {
             <CardTitle className="text-base flex items-center gap-2"><Zap className="h-4 w-4 text-indigo-500" />Take Action</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Assign worker */}
-            {availableWorkers.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Assign Worker</p>
-                <Select value={selectedWorkerId} onValueChange={setSelectedWorkerId}>
-                  <SelectTrigger className="rounded-xl">
-                    <SelectValue placeholder="Select a worker…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableWorkers.map(w => (
-                      <SelectItem key={w.id} value={w.id}>
-                        {w.name} — {w.designation ?? w.skillType ?? 'Worker'} ({w.activeTasks ?? 0}/{w.maxTaskCapacity ?? 5} tasks)
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {availableWorkers.length === 0 && (
-              <div className="flex items-center gap-2 rounded-xl bg-red-50 px-3 py-2">
-                <AlertTriangle className="h-4 w-4 text-red-500" />
-                <p className="text-xs text-red-600">No workers available — all at capacity.</p>
-              </div>
+            {/* Smart Worker Assignment */}
+            {(workers ?? []).length > 0 && (
+              <SmartWorkerSelector
+                workers={workers ?? []}
+                report={report}
+                selectedWorkerId={selectedWorkerId}
+                onSelectWorker={setSelectedWorkerId}
+                disabled={isSubmitting}
+              />
             )}
 
             {/* Status update */}
@@ -286,6 +282,9 @@ export default function DeptComplaintDetailPage() {
 
       {/* Agent Pipeline Execution Log */}
       <AgentPipelineVisualization report={report} isAdminView={true} />
+
+      {/* Explainable AI & Decision Transparency */}
+      <ExplainableAiCard report={report} />
 
       {/* AI Analysis */}
       {report.aiAnalysis && (

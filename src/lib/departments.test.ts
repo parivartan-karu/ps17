@@ -30,7 +30,10 @@ const TEST_CASES: Array<{ input: string; expectedId: CanonicalDepartmentId }> = 
   { input: 'Solid Waste Management', expectedId: 'dept_sanitation' },
   { input: 'Parks and Environment', expectedId: 'dept_parks' },
   { input: 'PWD', expectedId: 'dept_public_works' },
-  { input: 'Civil Engineering', expectedId: 'dept_engineering' },
+  { input: 'Garbage and Waste Management Department', expectedId: 'dept_sanitation' },
+  { input: 'Roads Department', expectedId: 'dept_engineering' },
+  { input: 'Road Repair Department', expectedId: 'dept_engineering' },
+  { input: 'Waste Management Department', expectedId: 'dept_sanitation' },
 ];
 
 export function runDepartmentVerification(): { passed: number; failed: number; errors: string[] } {

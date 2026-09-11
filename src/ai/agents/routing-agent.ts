@@ -62,16 +62,35 @@ export async function routingAgent(input: RoutingInput): Promise<RoutingOutput> 
     // 3. Fallback AI reasoning if category was unmapped
     if (routingPath === 'fallback_unassigned' && input.description.length > 5) {
       const textLower = input.description.toLowerCase();
-      if (textLower.includes('garbage') || textLower.includes('dump') || textLower.includes('waste') || textLower.includes('trash')) {
+      if (
+        textLower.includes('garbage') ||
+        textLower.includes('dump') ||
+        textLower.includes('waste') ||
+        textLower.includes('trash') ||
+        textLower.includes('debris') ||
+        textLower.includes('bin') ||
+        textLower.includes('uncollected') ||
+        textLower.includes('accumulation')
+      ) {
         targetDepartmentId = 'dept_sanitation';
         routingPath = 'ai_reasoning';
         confidence = 0.8;
-        reasoning = 'Extracted sanitation/waste keywords from description.';
-      } else if (textLower.includes('road') || textLower.includes('pothole') || textLower.includes('asphalt') || textLower.includes('bridge')) {
+        reasoning = 'Extracted sanitation/garbage/waste keywords from description.';
+      } else if (
+        textLower.includes('road') ||
+        textLower.includes('pothole') ||
+        textLower.includes('asphalt') ||
+        textLower.includes('bridge') ||
+        textLower.includes('footpath') ||
+        textLower.includes('sidewalk') ||
+        textLower.includes('pavement') ||
+        textLower.includes('crack') ||
+        textLower.includes('hazard')
+      ) {
         targetDepartmentId = 'dept_engineering';
         routingPath = 'ai_reasoning';
         confidence = 0.8;
-        reasoning = 'Extracted civil engineering/road keywords from description.';
+        reasoning = 'Extracted civil engineering/roads/footpath keywords from description.';
       } else if (textLower.includes('light') || textLower.includes('wire') || textLower.includes('electric') || textLower.includes('pole')) {
         targetDepartmentId = 'dept_electrical';
         routingPath = 'ai_reasoning';

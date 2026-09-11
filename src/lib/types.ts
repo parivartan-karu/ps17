@@ -42,9 +42,14 @@ export type User = {
   department?: string; // Department name for quick access
   designation?: string;
   skillType?: string; // e.g., 'Garbage', 'Road Repair', 'Electrical', etc.
+  skills?: string[]; // Array of worker skills
+  specialization?: string;
   workerRole?: WorkerRole; // New detailed role structure
   assignedContractor?: string;
   wardArea?: string;
+  ward?: string;
+  serviceArea?: string;
+  status?: 'active' | 'inactive';
   employeeId?: string;
   createdAt?: string;
   // Location data for workers

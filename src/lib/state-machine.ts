@@ -7,9 +7,9 @@ import type { ReportStatus } from './types';
 
 export const ALLOWED_STATUS_TRANSITIONS: Record<ReportStatus, ReportStatus[]> = {
   'Submitted': ['Under Verification', 'Assigned', 'Rejected'],
-  'Under Verification': ['Assigned', 'In Progress', 'Rejected'],
+  'Under Verification': ['Assigned', 'In Progress', 'Resolved', 'Rejected'],
   'Assigned': ['In Progress', 'Under Verification', 'Rejected'],
-  'In Progress': ['Resolved', 'Assigned', 'Rejected'],
+  'In Progress': ['Under Verification', 'Resolved', 'Assigned', 'Rejected'],
   'Resolved': [], // Terminal state! Cannot be modified or reopened.
   'Rejected': [], // Terminal state! Cannot be modified or reopened.
 };

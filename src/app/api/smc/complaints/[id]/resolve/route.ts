@@ -98,6 +98,35 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       if (isBeingResolved) {
         const userRef = firestore.collection('users').doc(currentReport.userId);
         transaction.update(userRef, { points: FieldValue.increment(10) });
+
+        // Batch resolve linked duplicate reports while preserving individual citizen records
+        const linkedSnap = await firestore
+          .collection('reports')
+          .where('linkedIncidentId', '==', reportId)
+          .get();
+
+        const timestampIso = new Date().toISOString();
+        const batchLogEntry = {
+          status: 'Resolved' as const,
+          timestamp: timestampIso,
+          actor: 'Official' as const,
+          actorName: identity.profile?.name || 'SMC Officer',
+          notes: `Master incident #${reportId.slice(0, 8)} resolved by department.`,
+        };
+
+        linkedSnap.docs.forEach((docSnap: any) => {
+          if (docSnap.data().status !== 'Resolved' && docSnap.data().status !== 'Rejected') {
+            const childRef = firestore.collection('reports').doc(docSnap.id);
+            transaction.update(childRef, {
+              status: 'Resolved',
+              workflowStage: 'completed',
+              queueStatus: 'completed',
+              actionLog: FieldValue.arrayUnion(batchLogEntry),
+            });
+            const childUserRef = firestore.collection('users').doc(docSnap.data().userId);
+            transaction.update(childUserRef, { points: FieldValue.increment(10) });
+          }
+        });
       }
 
       return {

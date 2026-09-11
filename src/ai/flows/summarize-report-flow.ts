@@ -43,8 +43,8 @@ export async function summarizeReportFlow(input: SummarizeReportInput): Promise<
 
 const prompt = ai.definePrompt({
   name: 'summarizeReportPrompt',
-  input: { schema: SummarizeReportInputSchema },
-  output: { schema: SummarizeReportOutputSchema },
+  input: { schema: SummarizeReportInputSchema as any },
+  output: { schema: SummarizeReportOutputSchema as any },
   prompt: `You are a helpful AI assistant for a busy Pune Municipal Corporation (PMC) official.
 Your task is to summarize a road damage report based on the provided JSON data.
 
@@ -71,8 +71,8 @@ Here is the report data:
 const reportSummarizerFlow = ai.defineFlow(
   {
     name: 'reportSummarizerFlow',
-    inputSchema: SummarizeReportInputSchema,
-    outputSchema: SummarizeReportOutputSchema,
+    inputSchema: SummarizeReportInputSchema as any,
+    outputSchema: SummarizeReportOutputSchema as any,
   },
   async (input) => {
     const { output } = await prompt(input);
