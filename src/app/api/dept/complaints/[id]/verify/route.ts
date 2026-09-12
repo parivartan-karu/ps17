@@ -52,6 +52,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       assignedWorkerId = reportData.assignedWorkerId;
       reportUserId = reportData.userId;
 
+      // Execute all transaction reads BEFORE any writes
+      const workerRef = assignedWorkerId ? firestore.collection('users').doc(assignedWorkerId) : null;
+      const workerDoc = workerRef ? await tx.get(workerRef) : null;
+      const linkedSnap = await firestore.collection('reports').where('linkedIncidentId', '==', reportId).get();
+
       const timestampIso = new Date().toISOString();
 
       if (action === 'approve') {
@@ -71,32 +76,47 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
         updatedStatus = 'Resolved';
 
-        applyReportStatusTransition(tx, reportRef, reportData, 'Resolved', { uid: identity.uid, role: identity.profile?.role || 'Department_Head', name: identity.profile?.name || 'Department Officer' }, {
-          notes: notes || 'Resolution verified and approved by department officer.',
-          extraUpdates: {
-            workflowStage: 'completed',
-            evidenceVerification: { passed: evidence.passed, score: evidence.score, reasons: evidence.reasons, verifiedAt: timestampIso },
-            agentLogs: FieldValue.arrayUnion(evidence.receipt),
-            queueStatus: 'completed',
-          },
-        });
+        const completedDeptTasks = Array.isArray(reportData.departmentTasks)
+          ? reportData.departmentTasks.map((t: any) => ({
+              ...t,
+              status: 'Completed' as const,
+              completedAt: t.completedAt || timestampIso,
+            }))
+          : reportData.departmentTasks;
+
+        // ALL TRANSACTION WRITES EXECUTE HERE:
+        applyReportStatusTransition(
+          tx,
+          reportRef,
+          reportData,
+          'Resolved',
+          { uid: identity.uid, role: identity.profile?.role || 'Department_Head', name: identity.profile?.name || 'Department Officer' },
+          {
+            notes: notes || 'Resolution verified and approved by department officer.',
+            departmentTasks: completedDeptTasks,
+            extraUpdates: {
+              workflowStage: 'completed',
+              ...(completedDeptTasks ? { departmentTasks: completedDeptTasks } : {}),
+              evidenceVerification: { passed: evidence.passed, score: evidence.score, reasons: evidence.reasons, verifiedAt: timestampIso },
+              agentLogs: FieldValue.arrayUnion(evidence.receipt),
+              queueStatus: 'completed',
+            },
+          }
+        );
 
         // Reward citizen (+10 points)
-        const userRef = firestore.collection('users').doc(reportData.userId);
-        tx.update(userRef, { points: FieldValue.increment(10) });
+        if (reportData.userId) {
+          const userRef = firestore.collection('users').doc(reportData.userId);
+          tx.update(userRef, { points: FieldValue.increment(10) });
+        }
 
         // Decrement assigned worker activeTasks on task completion
-        if (assignedWorkerId) {
-          const workerRef = firestore.collection('users').doc(assignedWorkerId);
-          const workerDoc = await tx.get(workerRef);
-          if (workerDoc.exists) {
-            const currentActive = workerDoc.data().activeTasks ?? 1;
-            tx.update(workerRef, { activeTasks: Math.max(0, currentActive - 1) });
-          }
+        if (workerRef && workerDoc?.exists) {
+          const currentActive = workerDoc.data().activeTasks ?? 1;
+          tx.update(workerRef, { activeTasks: Math.max(0, currentActive - 1) });
         }
 
         // Batch resolve linked duplicate reports
-        const linkedSnap = await firestore.collection('reports').where('linkedIncidentId', '==', reportId).get();
         linkedSnap.docs.forEach((docSnap: any) => {
           if (docSnap.data().status !== 'Resolved' && docSnap.data().status !== 'Rejected') {
             tx.update(firestore.collection('reports').doc(docSnap.id), {
@@ -111,7 +131,9 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
                 notes: `Master incident #${reportId.slice(0, 8)} approved and resolved by department.`,
               }),
             });
-            tx.update(firestore.collection('users').doc(docSnap.data().userId), { points: FieldValue.increment(10) });
+            if (docSnap.data().userId) {
+              tx.update(firestore.collection('users').doc(docSnap.data().userId), { points: FieldValue.increment(10) });
+            }
           }
         });
       } else if (action === 'rework') {

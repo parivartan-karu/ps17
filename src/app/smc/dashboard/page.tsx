@@ -76,11 +76,11 @@ export default function SmcDashboard() {
 
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {[
-        ['Critical', metrics.critical, 'border-red-200 bg-red-50', Flame],
-        ['SLA at Risk', metrics.slaRisk, 'border-amber-200 bg-amber-50', Clock3],
-        ['Escalated', metrics.escalated, 'border-orange-200 bg-orange-50', ShieldAlert],
-        ['Unassigned', metrics.unassigned, 'border-blue-200 bg-blue-50', Users],
-      ].map(([label,value,cls,Icon]) => <Card key={String(label)} className={String(cls)}><CardContent className="p-4"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider">{label}</span><Icon className="h-4 w-4"/></div><div className="mt-2 text-3xl font-black">{String(value)}</div></CardContent></Card>)}
+        { label: 'Critical', value: metrics.critical, cls: 'border-red-200 bg-red-50', Icon: Flame },
+        { label: 'SLA at Risk', value: metrics.slaRisk, cls: 'border-amber-200 bg-amber-50', Icon: Clock3 },
+        { label: 'Escalated', value: metrics.escalated, cls: 'border-orange-200 bg-orange-50', Icon: ShieldAlert },
+        { label: 'Unassigned', value: metrics.unassigned, cls: 'border-blue-200 bg-blue-50', Icon: Users },
+      ].map(({ label, value, cls, Icon }) => <Card key={label} className={cls}><CardContent className="p-4"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider">{label}</span><Icon className="h-4 w-4"/></div><div className="mt-2 text-3xl font-black">{value}</div></CardContent></Card>)}
     </div>
 
     <div className="grid lg:grid-cols-[1.15fr_.85fr] gap-4">

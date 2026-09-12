@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { collection, query, where } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
 import {
   BarChart3, CheckCircle2, Clock, AlertTriangle, ShieldAlert,
   Users, TrendingUp, Calendar, Zap, Loader2, ArrowUpRight
@@ -20,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import { doc } from 'firebase/firestore';
+import { DeptIcon } from '@/components/dept-icon';
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -193,30 +193,26 @@ export default function DeptAnalyticsPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-12 pt-16 md:pt-6">
-      {/* Header */}
-      <div className="rounded-3xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-purple-900 p-6 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Header (SMC Admin Dashboard Style) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-white/20 text-white border-white/30 text-xs font-bold px-2.5 py-0.5">
-              DEPARTMENT SCOPED ANALYTICS
-            </Badge>
-            <span className="text-xs text-indigo-300 font-medium">Authoritative Metrics</span>
-          </div>
-          <h1 className="text-2xl font-black tracking-tight mt-1">{deptName} Performance Analytics</h1>
-          <p className="text-xs text-indigo-200 mt-0.5">
-            Production resolution rates, SLA compliance, open backlog, and worker execution metrics
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <DeptIcon dept={deptId} className="h-3.5 w-3.5 text-indigo-600" />
+            <span>{deptName} Analytics</span>
+          </p>
+          <h1 className="text-2xl font-black tracking-tight">{deptName} Performance Analytics</h1>
+          <p className="text-sm text-muted-foreground">
+            Authoritative resolution rates, SLA compliance, open backlog, and field worker execution metrics
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-center">
+        <div className="flex items-center gap-1.5 self-start md:self-center">
           {(['7d', '30d', 'all'] as const).map(range => (
             <Button
               key={range}
               size="sm"
               variant={timeRange === range ? 'default' : 'outline'}
-              className={timeRange === range
-                ? 'bg-white text-indigo-900 font-bold rounded-xl'
-                : 'bg-white/10 text-white border-white/20 hover:bg-white/20 rounded-xl text-xs'}
+              className="rounded-lg text-xs font-semibold h-8"
               onClick={() => setTimeRange(range)}
             >
               {range.toUpperCase()}

@@ -17,6 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import { formatDistanceToNow, isToday } from 'date-fns';
 import { DeptOperationsMap } from '@/components/dept-operations-map';
 import { DepartmentInsightsCard } from '@/components/department-insights-card';
+import { DeptIcon } from '@/components/dept-icon';
 
 const statusColor: Record<string, string> = {
   Submitted: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -207,75 +208,71 @@ export function DeptCommandCenter({
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-12 pt-16 md:pt-6 max-w-7xl mx-auto">
-      {/* Top Command Center Hero Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-800 to-purple-900 p-6 md:p-8 text-white shadow-2xl">
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 h-64 w-64 rounded-full bg-white/10 blur-3xl pointer-events-none" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 text-3xl shadow-inner">
-              {deptDef?.icon ?? (isRoadsDept ? '🛣️' : isGarbageDept ? '🧹' : '🏛️')}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight">{deptName} Command Center</h1>
-                <Badge variant="outline" className="bg-emerald-500/20 text-emerald-200 border-emerald-400/40 text-xs font-semibold px-2 py-0.5">
-                  LIVE OPERATIONAL
-                </Badge>
-              </div>
-              <p className="text-sm text-indigo-200 font-medium">
-                Official Operations & Field Task Governance Panel · Officer {profile?.name ?? ''}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button size="sm" className="bg-white text-indigo-900 hover:bg-indigo-50 font-bold shadow-md rounded-xl" asChild>
-              <Link href="/dept/complaints">
-                <ClipboardList className="mr-2 h-4 w-4" /> Manage Complaints
-              </Link>
-            </Button>
-            <Button size="sm" variant="outline" className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-medium rounded-xl" asChild>
-              <Link href="/dept/workers">
-                <Users className="mr-2 h-4 w-4" /> Workers ({availableWorkersCount} Ready)
-              </Link>
-            </Button>
-          </div>
+      {/* Top Command Center Header (SMC Admin Dashboard Style) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <DeptIcon dept={userDeptId} className="h-3.5 w-3.5 text-indigo-600" />
+            <span>{deptName} Governance</span>
+          </p>
+          <h1 className="text-2xl font-black tracking-tight">{deptName} Command Center</h1>
+          <p className="text-sm text-muted-foreground">
+            Operational picture, field task governance, and SLA resolution panel · Officer {profile?.name ?? ''}
+          </p>
         </div>
 
-        {/* SLA Progress Bar Banner */}
-        {metrics && (
-          <div className="mt-6 pt-4 border-t border-white/15 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-            <div className="col-span-3 space-y-1.5">
-              <div className="flex justify-between text-xs font-semibold text-indigo-100">
-                <span>Department SLA Compliance Target (Overall)</span>
-                <span className="font-bold text-white text-sm">{metrics.slaCompliancePct}%</span>
-              </div>
-              <Progress value={metrics.slaCompliancePct} className="h-2.5 bg-black/20 [&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:to-teal-300 rounded-full" />
-            </div>
-            <div className="flex items-center justify-between md:justify-end gap-3 text-xs text-indigo-200 font-medium">
-              <span>Resolved Today: <strong className="text-white text-sm">{metrics.resolvedToday}</strong></span>
-              <span>SLA Breaches: <strong className="text-rose-300 text-sm">{metrics.slaBreached}</strong></span>
-            </div>
-          </div>
-        )}
+        <div className="flex items-center gap-3">
+          <Badge className="gap-2 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 border-emerald-300 font-bold text-xs">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" /> LIVE OPERATIONAL
+          </Badge>
+          <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm rounded-lg" asChild>
+            <Link href="/dept/complaints">
+              <ClipboardList className="mr-2 h-4 w-4" /> Manage Complaints
+            </Link>
+          </Button>
+          <Button size="sm" variant="outline" className="rounded-lg font-medium" asChild>
+            <Link href="/dept/workers">
+              <Users className="mr-2 h-4 w-4" /> Workers ({availableWorkersCount} Ready)
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {/* 7 Key Operational Metrics Bar */}
+      {/* SLA Progress Bar Banner */}
+      {metrics && (
+        <Card className="border-indigo-100 bg-indigo-50/40 shadow-sm">
+          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+            <div className="col-span-3 space-y-1.5">
+              <div className="flex justify-between text-xs font-bold text-slate-700">
+                <span>Department SLA Compliance Rate (Overall Target)</span>
+                <span className="font-extrabold text-indigo-700 text-sm">{metrics.slaCompliancePct}%</span>
+              </div>
+              <Progress value={metrics.slaCompliancePct} className="h-2 bg-slate-200 [&>div]:bg-indigo-600 rounded-full" />
+            </div>
+            <div className="flex items-center justify-between md:justify-end gap-3 text-xs font-semibold text-slate-600">
+              <span>Resolved Today: <strong className="text-emerald-700 text-sm">{metrics.resolvedToday}</strong></span>
+              <span>SLA Breaches: <strong className="text-rose-600 text-sm">{metrics.slaBreached}</strong></span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 7 Key Operational Metrics Bar (SMC Admin Card Style) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         {[
-          { label: 'Open Complaints', value: metrics?.open, icon: ClipboardList, color: 'bg-indigo-500 text-indigo-500' },
-          { label: 'High / Critical', value: metrics?.highCritical, icon: Flame, color: 'bg-rose-500 text-rose-500' },
-          { label: 'Unassigned Queue', value: metrics?.unassigned, icon: Clock3, color: 'bg-amber-500 text-amber-500' },
-          { label: 'Near SLA Breach', value: metrics?.nearSlaBreach, icon: AlertTriangle, color: 'bg-orange-500 text-orange-500' },
-          { label: 'SLA Breached', value: metrics?.slaBreached, icon: AlertCircle, color: 'bg-red-600 text-red-600' },
-          { label: 'Resolved Today', value: metrics?.resolvedToday, icon: CheckCircle2, color: 'bg-emerald-500 text-emerald-500' },
-          { label: 'SLA Compliance', value: metrics ? `${metrics.slaCompliancePct}%` : '100%', icon: Zap, color: 'bg-teal-500 text-teal-500' },
+          { label: 'Open', value: metrics?.open, icon: ClipboardList, cls: 'border-indigo-200 bg-indigo-50/60' },
+          { label: 'Critical', value: metrics?.highCritical, icon: Flame, cls: 'border-red-200 bg-red-50/60' },
+          { label: 'Unassigned', value: metrics?.unassigned, icon: Clock3, cls: 'border-blue-200 bg-blue-50/60' },
+          { label: 'Near Breach', value: metrics?.nearSlaBreach, icon: AlertTriangle, cls: 'border-amber-200 bg-amber-50/60' },
+          { label: 'Breached', value: metrics?.slaBreached, icon: AlertCircle, cls: 'border-rose-200 bg-rose-50/60' },
+          { label: 'Resolved Today', value: metrics?.resolvedToday, icon: CheckCircle2, cls: 'border-emerald-200 bg-emerald-50/60' },
+          { label: 'SLA Compliance', value: metrics ? `${metrics.slaCompliancePct}%` : '100%', icon: Zap, cls: 'border-teal-200 bg-teal-50/60' },
         ].map((m, idx) => (
-          <Card key={idx} className="border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+          <Card key={idx} className={`${m.cls} shadow-sm hover:shadow-md transition-all`}>
             <CardContent className="p-3.5 space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">{m.label}</span>
-                <m.icon className={`h-4 w-4 ${m.color}`} />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{m.label}</span>
+                <m.icon className="h-4 w-4 text-slate-700" />
               </div>
               {isLoading ? (
                 <Skeleton className="h-7 w-16 my-1" />
@@ -299,7 +296,14 @@ export function DeptCommandCenter({
               {queues.immediate.length} complaint{queues.immediate.length > 1 ? 's are' : ' is'} flagged for Critical priority, active SLA breach, or high-level escalation.
             </p>
           </div>
-          <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shrink-0" onClick={() => setActiveTab('immediate')}>
+          <Button
+            size="sm"
+            className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl shrink-0 cursor-pointer"
+            onClick={() => {
+              setActiveTab('immediate');
+              document.getElementById('work-queues-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
             View Queue ({queues.immediate.length})
           </Button>
         </div>
@@ -434,7 +438,7 @@ export function DeptCommandCenter({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: 5 Operational Queue Tabs & List (2 Columns wide on desktop) */}
         <div className="lg:col-span-2 space-y-4">
-          <Card className="border-slate-200 shadow-sm">
+          <Card id="work-queues-section" className="border-slate-200 shadow-sm scroll-mt-20">
             <CardHeader className="p-4 border-b pb-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
@@ -455,11 +459,10 @@ export function DeptCommandCenter({
                       key={tab.key}
                       size="sm"
                       variant={activeTab === tab.key ? 'default' : 'ghost'}
-                      className={`h-7 px-2.5 text-xs font-semibold rounded-lg ${
-                        activeTab === tab.key
+                      className={`h-7 px-2.5 text-xs font-semibold rounded-lg ${activeTab === tab.key
                           ? 'bg-indigo-600 text-white'
                           : 'text-slate-600 hover:bg-slate-100'
-                      }`}
+                        }`}
                       onClick={() => setActiveTab(tab.key as any)}
                     >
                       {tab.label}
@@ -608,9 +611,8 @@ export function DeptCommandCenter({
                       <Progress value={pct} className="h-1.5 bg-slate-200 [&>div]:bg-indigo-600" />
                     </div>
 
-                    <Badge className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                      isAvailable ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200'
-                    }`}>
+                    <Badge className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${isAvailable ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200'
+                      }`}>
                       {isAvailable ? 'Available' : 'Full'}
                     </Badge>
                   </div>

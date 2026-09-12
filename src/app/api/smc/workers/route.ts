@@ -174,6 +174,7 @@ export async function POST(request: NextRequest) {
     });
 
     let smsStatus: 'sent' | 'failed' = 'sent';
+    let smsError: string | null = null;
 
     try {
       const smsResult = await sendSMS({
@@ -182,11 +183,13 @@ export async function POST(request: NextRequest) {
       });
       if (!smsResult.success) {
         smsStatus = 'failed';
+        smsError = smsResult.error || 'SMS delivery failed';
         console.warn('Worker onboarding SMS failed:', smsResult.error);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Worker onboarding SMS failed:', error);
       smsStatus = 'failed';
+      smsError = error?.message || 'SMS request failed';
     }
 
     return NextResponse.json({
@@ -194,6 +197,7 @@ export async function POST(request: NextRequest) {
       workerId,
       password,
       smsStatus,
+      smsError,
     });
   } catch (error) {
     if (error instanceof RequestAuthError) {

@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/firebase';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import { useToast } from '@/hooks/use-toast';
+import { ImageEyeViewer } from '@/components/image-eye-viewer';
 
 interface DepartmentVerificationPanelProps {
   report: Report;
@@ -96,9 +97,12 @@ export function DepartmentVerificationPanel({
               <Badge variant="outline" className="text-[10px]">Citizen Upload</Badge>
             </div>
             {report.imageUrl ? (
-              <div className="relative h-44 w-full rounded-xl overflow-hidden border border-slate-200 bg-black">
-                <Image src={report.imageUrl} alt="Before Work Evidence" fill className="object-cover" />
-              </div>
+              <ImageEyeViewer
+                src={report.imageUrl}
+                alt="Before Work Evidence"
+                title="Citizen Upload - Before Work Evidence"
+                heightClass="h-44"
+              />
             ) : (
               <div className="h-44 w-full rounded-xl border border-dashed border-slate-300 flex items-center justify-center text-xs text-slate-400">
                 No initial photo provided
@@ -115,9 +119,13 @@ export function DepartmentVerificationPanel({
               </Badge>
             </div>
             {report.afterWorkMediaUrl ? (
-              <div className="relative h-44 w-full rounded-xl overflow-hidden border border-slate-200 bg-black">
-                <Image src={report.afterWorkMediaUrl} alt="After Work Evidence" fill className="object-cover" />
-              </div>
+              <ImageEyeViewer
+                src={report.afterWorkMediaUrl}
+                alt="After Work Evidence"
+                title="Worker Upload - After Work Evidence"
+                heightClass="h-44"
+                mediaType={report.afterWorkMediaType}
+              />
             ) : (
               <div className="h-44 w-full rounded-xl border border-dashed border-amber-300 bg-amber-50/50 flex flex-col items-center justify-center text-xs text-amber-700 p-4 text-center">
                 <AlertCircle className="h-6 w-6 text-amber-500 mb-1" />

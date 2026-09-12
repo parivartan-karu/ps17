@@ -82,19 +82,17 @@ export function SmartWorkerSelector({
                   onSelectWorker(worker.id);
                 }
               }}
-              className={`p-3 rounded-2xl border transition-all cursor-pointer ${
-                isSelected
+              className={`p-3 rounded-2xl border transition-all cursor-pointer ${isSelected
                   ? 'border-indigo-600 bg-indigo-50/70 ring-2 ring-indigo-500/20 shadow-md'
                   : isEligible
-                  ? 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm'
-                  : 'border-slate-200 bg-slate-50/60 opacity-60 cursor-not-allowed'
-              }`}
+                    ? 'border-slate-200 bg-white hover:border-indigo-300 hover:shadow-sm'
+                    : 'border-slate-200 bg-slate-50/60 opacity-60 cursor-not-allowed'
+                }`}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className={`h-9 w-9 rounded-full font-bold text-xs flex items-center justify-center shrink-0 shadow-sm ${
-                    isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
-                  }`}>
+                  <div className={`h-9 w-9 rounded-full font-bold text-xs flex items-center justify-center shrink-0 shadow-sm ${isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-700'
+                    }`}>
                     {worker.name?.charAt(0)?.toUpperCase() ?? 'W'}
                   </div>
 

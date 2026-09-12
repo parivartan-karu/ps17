@@ -33,6 +33,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useParams } from 'next/navigation';
 import { summarizeReportFlow } from '@/ai/flows/summarize-report-flow';
 import ReactMarkdown from 'react-markdown';
+import { ImageEyeViewer } from '@/components/image-eye-viewer';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import { departmentConfig, departments } from '@/lib/constants';
 import { SmcCentralOverrideDialog } from '@/components/smc-central-override-dialog';
@@ -424,7 +425,12 @@ export default function SmcComplaintDetailPage() {
             <CardDescription>Report ID: {report.id}</CardDescription>
           </CardHeader>
           <CardContent>
-            <Image src={report.imageUrl} alt={report.id} width={800} height={600} className="rounded-lg w-full object-cover" />
+            <ImageEyeViewer
+              src={report.imageUrl}
+              alt={report.category}
+              title={`Citizen Upload - ${report.category}`}
+              heightClass="h-64 md:h-80"
+            />
           </CardContent>
         </Card>
 
@@ -450,19 +456,13 @@ export default function SmcComplaintDetailPage() {
                     )}
                   </div>
                   {report.beforeWorkMediaUrl ? (
-                    report.beforeWorkMediaType === 'video' ? (
-                      <video
-                        src={report.beforeWorkMediaUrl}
-                        controls
-                        className="rounded-lg w-full h-48 object-cover border"
-                      />
-                    ) : (
-                      <img
-                        src={report.beforeWorkMediaUrl}
-                        alt="Before Work Proof"
-                        className="rounded-lg w-full h-48 object-cover border"
-                      />
-                    )
+                    <ImageEyeViewer
+                      src={report.beforeWorkMediaUrl}
+                      alt="Before Work Proof"
+                      title="Worker Upload - Before Work Proof"
+                      heightClass="h-48"
+                      mediaType={report.beforeWorkMediaType}
+                    />
                   ) : (
                     <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground italic">
                       No before-work photo uploaded
@@ -486,19 +486,13 @@ export default function SmcComplaintDetailPage() {
                     )}
                   </div>
                   {(report.afterWorkMediaUrl || report.afterImageUrl) ? (
-                    (report.afterWorkMediaType === 'video') ? (
-                      <video
-                        src={report.afterWorkMediaUrl}
-                        controls
-                        className="rounded-lg w-full h-48 object-cover border"
-                      />
-                    ) : (
-                      <img
-                        src={report.afterWorkMediaUrl || report.afterImageUrl}
-                        alt="After Work Proof"
-                        className="rounded-lg w-full h-48 object-cover border"
-                      />
-                    )
+                    <ImageEyeViewer
+                      src={report.afterWorkMediaUrl || report.afterImageUrl!}
+                      alt="After Work Proof"
+                      title="Worker Upload - After Work Proof"
+                      heightClass="h-48"
+                      mediaType={report.afterWorkMediaType}
+                    />
                   ) : (
                     <div className="flex h-48 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground italic">
                       Work in progress

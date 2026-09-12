@@ -115,11 +115,13 @@ export default function DeptLoginPage() {
 
             <div className="mt-6 rounded-xl bg-indigo-50 p-4 text-xs text-indigo-700">
               <p className="font-semibold mb-1">ℹ️ Access Info</p>
-              <p>This portal is restricted to PMC system administrators and designated officers.</p>
+              <p>This portal is restricted to designated department heads and operational officers.</p>
             </div>
 
             <div className="mt-4 flex justify-center gap-4 text-xs text-gray-400">
-              <Link href="/smc/login" className="hover:text-indigo-600 transition-colors">Garbage Dept Portal</Link>
+              <Link href="/smc/login" className="hover:text-purple-600 transition-colors">PMC Central Admin</Link>
+              <span>·</span>
+              <Link href="/worker/login" className="hover:text-orange-600 transition-colors">Field Worker</Link>
               <span>·</span>
               <Link href="/citizen/login" className="hover:text-emerald-600 transition-colors">Citizen Portal</Link>
             </div>

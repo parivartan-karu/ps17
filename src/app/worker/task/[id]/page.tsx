@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ImageEyeViewer } from '@/components/image-eye-viewer';
 
 function MediaPreview({
   label,
@@ -53,13 +54,15 @@ function MediaPreview({
   }
 
   return (
-    <div className="space-y-3">
-      <p className="text-sm font-medium">{label}</p>
-      {mediaType === 'video' ? (
-        <video src={url} controls className="w-full rounded-xl" />
-      ) : (
-        <Image src={url} alt={label} width={1200} height={800} className="w-full rounded-xl object-cover" />
-      )}
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-slate-700">{label}</p>
+      <ImageEyeViewer
+        src={url}
+        alt={label}
+        title={label}
+        heightClass="h-44"
+        mediaType={mediaType}
+      />
     </div>
   );
 }
@@ -144,8 +147,8 @@ export default function WorkerTaskPage() {
 
   const isMine = useMemo(() => {
     if (!report) return false;
-    return isAssignedToWorker(report, workerId, workerName);
-  }, [report, workerId, workerName]);
+    return isAssignedToWorker(report, workerId, workerName, userProfile?.employeeId);
+  }, [report, workerId, workerName, userProfile?.employeeId]);
 
   const isSelfAssignable = report ? isOpenLowPriorityTask(report, userProfile?.departmentId || userProfile?.department) : false;
   const canOperate = isMine || isSelfAssignable;

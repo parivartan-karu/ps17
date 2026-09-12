@@ -19,8 +19,8 @@ export default function IncidentCommandView() {
   const reportRef = useMemoFirebase(() => firestore && id ? doc(firestore,'reports',id) : null, [firestore,id]);
   const { data: report, isLoading } = useDoc<Report>(reportRef);
   const workerQuery = useMemoFirebase(() => firestore && report?.assignedWorkerId ? query(collection(firestore,'users'),where('__name__','==',report.assignedWorkerId)) : null, [firestore,report?.assignedWorkerId]) as Query<DocumentData> | null;
-  const { data: workerRows=[] } = useCollection<UserType>(workerQuery);
-  const worker = workerRows[0];
+  const { data: rawWorkerRows } = useCollection<UserType>(workerQuery);
+  const worker = (rawWorkerRows || [])[0];
 
   if (isLoading) return <div className="p-8 text-sm text-muted-foreground">Loading incident command view…</div>;
   if (!report) return <div className="p-8"><Link href="/smc/dashboard" className="underline">Back to Command Center</Link><p className="mt-4">Incident not found.</p></div>;

@@ -223,7 +223,7 @@ If a user asks something you don't know, say "I don't have detailed information 
 
       const llmResponse = await ai.generate({
         messages: historyForGenkit,
-        model: 'googleai/gemini-2.5-flash',
+        model: 'googleai/gemini-3.5-flash',
         config: {
           temperature: 0.7,
           maxOutputTokens: 180,

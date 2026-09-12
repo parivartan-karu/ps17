@@ -8,7 +8,7 @@ import Image from 'next/image';
 import { formatDistanceToNow } from 'date-fns';
 import {
   ArrowLeft, MapPin, Clock, User, CheckCircle2, Bot, Shield,
-  Loader2, AlertTriangle, Zap
+  Loader2, AlertTriangle, Zap, UserCheck
 } from 'lucide-react';
 
 import { useAuth, useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
@@ -27,6 +27,7 @@ import { SmartWorkerSelector } from '@/components/smart-worker-selector';
 import { IncidentConsolidationBanner } from '@/components/incident-consolidation-banner';
 import { DepartmentVerificationPanel } from '@/components/department-verification-panel';
 import { ExplainableAiCard } from '@/components/explainable-ai-card';
+import { ImageEyeViewer } from '@/components/image-eye-viewer';
 import { useToast } from '@/hooks/use-toast';
 
 const NEXT_STATUSES: Partial<Record<ReportStatus, ReportStatus[]>> = {
@@ -78,10 +79,15 @@ export default function DeptComplaintDetailPage() {
   const dept = profile?.department ?? '';
 
   const workersQuery = useMemoFirebase(() => {
-    if (!firestore || !dept) return null;
-    return query(collection(firestore, 'users'), where('role', '==', 'worker'), where('department', '==', dept));
-  }, [firestore, dept]);
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), where('role', '==', 'worker'));
+  }, [firestore]);
   const { data: workers } = useCollection<UserType>(workersQuery);
+
+  const assignedWorker = useMemo(() => {
+    if (!workers || !report?.assignedWorkerId) return null;
+    return workers.find(w => w.id === report.assignedWorkerId) || null;
+  }, [workers, report?.assignedWorkerId]);
 
   const availableWorkers = useMemo(() => (workers ?? []).filter(w => (w.activeTasks ?? 0) < (w.maxTaskCapacity ?? 5)), [workers]);
   const nextStatuses = NEXT_STATUSES[report?.status as ReportStatus] ?? [];
@@ -102,8 +108,9 @@ export default function DeptComplaintDetailPage() {
           headers,
           body: JSON.stringify({ workerId: selectedWorkerId, workerName: worker?.name }),
         });
-        if (!res.ok) throw new Error((await res.json()).error);
-        toast({ title: '👷 Worker assigned' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Worker assignment failed.');
+        toast({ title: '👷 Worker assigned', description: `Assigned to ${worker?.name || 'field worker'}.` });
       }
 
       if (selectedStatus) {
@@ -112,7 +119,8 @@ export default function DeptComplaintDetailPage() {
           headers,
           body: JSON.stringify({ newStatus: selectedStatus, remarks }),
         });
-        if (!res.ok) throw new Error((await res.json()).error);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Status update failed.');
         toast({ title: '✅ Status updated', description: `Moved to "${selectedStatus}"` });
       }
 
@@ -120,7 +128,7 @@ export default function DeptComplaintDetailPage() {
       setSelectedWorkerId('');
       setRemarks('');
     } catch (e: any) {
-      toast({ title: 'Update failed', description: e.message, variant: 'destructive' });
+      toast({ title: 'Update failed', description: e.message || 'Operation failed.', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
     }
@@ -171,16 +179,26 @@ export default function DeptComplaintDetailPage() {
             {report.department && <Badge variant="outline">{report.department}</Badge>}
           </div>
           {report.imageUrl && (
-            <div className="relative h-40 w-full rounded-xl overflow-hidden">
-              <Image src={report.imageUrl} alt="Evidence" fill className="object-cover" />
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-600">Citizen Evidence (Before Work)</p>
+              <ImageEyeViewer
+                src={report.imageUrl}
+                alt="Before Work Evidence"
+                title="Citizen Upload - Before Work Evidence"
+                heightClass="h-48"
+              />
             </div>
           )}
           {report.afterWorkMediaUrl && (
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-1">After Work</p>
-              <div className="relative h-32 w-full rounded-xl overflow-hidden">
-                <Image src={report.afterWorkMediaUrl} alt="After" fill className="object-cover" />
-              </div>
+            <div className="space-y-1">
+              <p className="text-xs font-semibold text-slate-600">Worker Evidence (After Work)</p>
+              <ImageEyeViewer
+                src={report.afterWorkMediaUrl}
+                alt="After Work Evidence"
+                title="Worker Upload - After Work Evidence"
+                heightClass="h-48"
+                mediaType={report.afterWorkMediaType}
+              />
             </div>
           )}
         </CardContent>
@@ -214,6 +232,51 @@ export default function DeptComplaintDetailPage() {
 
       {/* Department Verification & Evidence Panel */}
       <DepartmentVerificationPanel report={report} />
+
+      {/* Currently Assigned Worker Banner */}
+      <Card className="border-0 shadow-sm bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl overflow-hidden">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10 text-indigo-200 shrink-0 font-bold text-lg shadow-inner">
+              <UserCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-indigo-300 uppercase tracking-wider">Currently Assigned Field Worker</p>
+              {report.assignedWorkerId || report.assignedContractor ? (
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <h3 className="font-extrabold text-base text-white">{assignedWorker?.name || report.assignedContractor || 'Assigned Field Worker'}</h3>
+                  {assignedWorker?.designation && (
+                    <Badge className="bg-indigo-500/30 text-indigo-200 border-indigo-400/30 text-[10px]">
+                      {assignedWorker.designation}
+                    </Badge>
+                  )}
+                  {assignedWorker?.employeeId && (
+                    <Badge variant="outline" className="text-slate-300 border-slate-700 text-[10px]">
+                      ID: {assignedWorker.employeeId}
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <p className="font-semibold text-amber-300 text-sm mt-0.5">⚠️ No field worker assigned to this task yet</p>
+              )}
+              {assignedWorker && (
+                <p className="text-xs text-indigo-200/80 mt-0.5">
+                  Active Workload: {assignedWorker.activeTasks ?? 0}/{assignedWorker.maxTaskCapacity ?? 5} tasks • Ward: {assignedWorker.wardArea || assignedWorker.ward || 'General Area'}
+                </p>
+              )}
+            </div>
+          </div>
+          {report.assignedWorkerId ? (
+            <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-3 py-1 text-xs self-start sm:self-center">
+              ✓ Assigned & Active
+            </Badge>
+          ) : (
+            <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 px-3 py-1 text-xs self-start sm:self-center">
+              Needs Worker Assignment
+            </Badge>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Action panel */}
       {!['Resolved', 'Rejected'].includes(report.status) && (

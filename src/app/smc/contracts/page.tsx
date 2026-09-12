@@ -7,8 +7,7 @@ import type { Report } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
-import { UserCheck, ClipboardPlus, Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Trash2, Clock, Users } from 'lucide-react';
+import { UserCheck, ClipboardPlus, Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Trash2, Clock, Users, Copy, Check, MessageSquareWarning } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,6 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 
 
@@ -427,6 +434,16 @@ export default function SmcContractsPage() {
     setIsConfirmOpen(true);
   };
 
+  const [createdWorkerModal, setCreatedWorkerModal] = useState<{
+    workerId: string;
+    password: string;
+    fullName: string;
+    phoneNumber: string;
+    smsStatus: string;
+    smsError?: string | null;
+  } | null>(null);
+  const [copiedCredentials, setCopiedCredentials] = useState(false);
+
   const handleCreateWorker = async () => {
     setIsCreatingWorker(true);
     try {
@@ -443,11 +460,20 @@ export default function SmcContractsPage() {
         throw new Error(data?.error || 'Worker creation failed.');
       }
 
+      setCreatedWorkerModal({
+        workerId: data.workerId,
+        password: data.password,
+        fullName: newWorker.fullName,
+        phoneNumber: newWorker.phoneNumber,
+        smsStatus: data.smsStatus,
+        smsError: data.smsError,
+      });
+
       toast({
         title: '✅ Worker Account Created',
         description:
           data?.smsStatus === 'failed'
-            ? `Worker ID: ${data.workerId} | Password: ${data.password} (Note: Twilio Trial restricts SMS to unverified numbers)`
+            ? `Worker ID: ${data.workerId} | Password: ${data.password} (Twilio Trial notice)`
             : `Worker ID: ${data.workerId} | Password: ${data.password} (SMS sent)`,
         duration: 10000,
       });
@@ -656,6 +682,87 @@ export default function SmcContractsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Worker Account Created Modal Dialog */}
+      <Dialog open={!!createdWorkerModal} onOpenChange={(open) => { if (!open) setCreatedWorkerModal(null); }}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-2">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-xl font-bold">Worker Account Created</DialogTitle>
+            <DialogDescription className="text-center text-xs">
+              Account generated for <strong className="text-foreground">{createdWorkerModal?.fullName}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 my-2">
+            <div className="rounded-xl bg-slate-50 border p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Employee Worker ID:</span>
+                <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded border border-slate-200">{createdWorkerModal?.workerId}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Auto-generated Password:</span>
+                <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded border border-slate-200">{createdWorkerModal?.password}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Mobile Number:</span>
+                <span className="font-mono text-xs">{createdWorkerModal?.phoneNumber}</span>
+              </div>
+            </div>
+
+            {/* SMS Status Banner */}
+            {createdWorkerModal?.smsStatus === 'sent' ? (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-xs text-emerald-800 flex items-start gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">SMS Dispatched</p>
+                  <p className="text-[11px] text-emerald-700">Login credentials have been dispatched via SMS to {createdWorkerModal?.phoneNumber}.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900 flex items-start gap-2">
+                <MessageSquareWarning className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">SMS Delivery Notice (Twilio Trial Account)</p>
+                  <p className="text-[11px] text-amber-800 leading-relaxed mt-0.5">
+                    Twilio Trial accounts restrict SMS delivery to numbers explicitly added & verified in the Twilio Console ({createdWorkerModal?.phoneNumber} is unverified).
+                  </p>
+                  <p className="text-[11px] font-semibold text-amber-950 mt-1">
+                    💡 The account is active! Use the Worker ID & Password above to log in directly at <code className="bg-amber-100 px-1 rounded">/worker/login</code>.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl gap-1.5 text-xs"
+              onClick={() => {
+                if (!createdWorkerModal) return;
+                navigator.clipboard.writeText(`Worker ID: ${createdWorkerModal.workerId}\nPassword: ${createdWorkerModal.password}\nLogin Portal: /worker/login`);
+                setCopiedCredentials(true);
+                toast({ title: '📋 Credentials Copied', description: 'Worker ID and Password copied to clipboard.' });
+                setTimeout(() => setCopiedCredentials(false), 2000);
+              }}
+            >
+              {copiedCredentials ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              {copiedCredentials ? 'Copied!' : 'Copy Credentials'}
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs"
+              onClick={() => setCreatedWorkerModal(null)}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

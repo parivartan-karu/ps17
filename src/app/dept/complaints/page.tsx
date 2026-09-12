@@ -18,6 +18,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeDepartment, normalizeDepartmentId, isReportInDepartment } from '@/lib/departments';
+import { DeptIcon } from '@/components/dept-icon';
 
 const statusColors: Record<string, string> = {
   Submitted: 'bg-blue-100 text-blue-700 border-blue-200',
@@ -121,10 +122,17 @@ function DeptComplaintsContent() {
 
   return (
     <div className="p-4 md:p-6 space-y-4 pb-8 pt-16 md:pt-6">
-      <div className="flex items-center justify-between">
+      {/* Top Banner (SMC Admin Dashboard Style) */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
-          <h1 className="text-xl font-bold">{isSystemAdmin || dept === 'Admin' ? 'Admin Complaints' : `${dept} Complaints`}</h1>
-          <p className="text-sm text-muted-foreground">{filtered.length} result{filtered.length !== 1 ? 's' : ''}</p>
+          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <DeptIcon dept={userDeptId} className="h-3.5 w-3.5 text-indigo-600" />
+            <span>{dept} Operations</span>
+          </p>
+          <h1 className="text-2xl font-black tracking-tight">{isSystemAdmin || dept === 'Admin' ? 'Admin Complaints Management' : `${dept} Complaints Governance`}</h1>
+          <p className="text-sm text-muted-foreground">
+            {filtered.length} complaint{filtered.length !== 1 ? 's' : ''} listed matching active operational filters
+          </p>
         </div>
       </div>
 
@@ -155,7 +163,7 @@ function DeptComplaintsContent() {
       </div>
 
       {/* Loading */}
-      {isLoading && [1,2,3].map(i => (
+      {isLoading && [1, 2, 3].map(i => (
         <div key={i} className="rounded-2xl border bg-white p-4 space-y-2">
           <Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" />
         </div>

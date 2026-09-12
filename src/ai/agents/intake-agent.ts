@@ -65,7 +65,7 @@ export async function intakeAgent(input: IntakeInput): Promise<IntakeOutput> {
     try {
       rawMediaAnalysis = await aiDamageAssessment({ mediaDataUri: input.mediaDataUri });
       mediaAnalyzed = true;
-      modelUsed = 'gemini-2.5-flash+rule_intake';
+      modelUsed = 'gemini-3.5-flash+rule_intake';
 
       if (rawMediaAnalysis.damageCategory && rawMediaAnalysis.damageCategory !== 'None') {
         extractedIssueHints.push(rawMediaAnalysis.damageCategory);

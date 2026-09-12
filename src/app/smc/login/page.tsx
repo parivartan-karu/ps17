@@ -89,11 +89,11 @@ export default function SmcLoginPage() {
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-700">
               <ShieldCheck className="h-5 w-5 text-white" />
             </div>
-            <p className="text-xl font-black text-gray-900">Parivartan Department</p>
+            <p className="text-xl font-black text-gray-900">PMC Central Portal</p>
           </div>
 
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Department Sign In</h1>
-          <p className="text-sm text-gray-500 mb-8">Restricted — authorised PMC officials only.</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-1">PMC Central Administration</h1>
+          <p className="text-sm text-gray-500 mb-8">Restricted — authorised PMC officials & system administrators only.</p>
 
           <div className="rounded-2xl bg-white shadow-2xl overflow-hidden">
             <div className="h-1.5 bg-gradient-to-r from-purple-600 to-indigo-600" />
@@ -129,7 +129,8 @@ export default function SmcLoginPage() {
 
           <div className="mt-6 flex justify-center gap-4 text-xs text-gray-400">
             <Link href="/citizen/login" className="hover:text-emerald-600 transition-colors flex items-center gap-1">Citizen Portal <ArrowRight className="h-3 w-3" /></Link>
-            <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">PMC Central Portal <ArrowRight className="h-3 w-3" /></Link>
+            <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">Department Portal <ArrowRight className="h-3 w-3" /></Link>
+            <Link href="/worker/login" className="hover:text-orange-600 transition-colors flex items-center gap-1">Field Worker <ArrowRight className="h-3 w-3" /></Link>
           </div>
         </div>
       </div>

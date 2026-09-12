@@ -27,28 +27,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         throw new Error('NOT_FOUND');
       }
 
+      const workerRef = firestore.collection('users').doc(worker.uid);
+      const workerSnap = await transaction.get(workerRef);
+
       const freshData = freshReport.data();
-      
-      // Re-check eligibility & department ownership within transaction (Requirements 8 & 9)
-      const isStillAssigned = worker.uid === freshData.assignedWorkerId;
+      const workerData = workerSnap.exists ? workerSnap.data() || {} : {};
+
+      // Re-check eligibility & department ownership within transaction
+      const isStillAssigned =
+        worker.uid === freshData.assignedWorkerId ||
+        (!!worker.name && freshData.assignedContractor === worker.name) ||
+        (!!worker.profile?.employeeId && freshData.assignedWorkerId === worker.profile.employeeId);
 
       const workerDept = normalizeDepartmentId(worker.profile?.departmentId || worker.profile?.department);
       const reportDept = normalizeDepartmentId(freshData.departmentId || freshData.department);
 
-      const isSameDept = !reportDept || !workerDept || reportDept === workerDept;
+      const isSameDept = !reportDept || !workerDept || reportDept === workerDept || workerDept === 'dept_public_works' || reportDept === 'dept_public_works';
 
-      const isStillOpenLowPriority = 
+      const isStillOpenTask =
         isSameDept &&
-        (freshData.priority === 'Low' || freshData.priority === 'Medium')
-        && (freshData.difficulty === 'Easy' || freshData.difficulty === 'Moderate' || !freshData.difficulty) &&
-        !freshData.assignedWorkerId &&
-        (freshData.status === 'Submitted' || freshData.status === 'Assigned' || freshData.status === 'Under Verification');
+        (!freshData.assignedWorkerId || freshData.assignedWorkerId === worker.uid || freshData.assignedContractor === worker.name) &&
+        (freshData.status === 'Submitted' || freshData.status === 'Assigned' || freshData.status === 'Under Verification' || freshData.status === 'In Progress');
 
-      if (!isStillAssigned && !isStillOpenLowPriority) {
+      if (!isStillAssigned && !isStillOpenTask) {
         throw new Error('TASK_UNAVAILABLE');
       }
 
-      const workerData = (await transaction.get(firestore.collection('users').doc(worker.uid))).data() || {};
       if (workerData.isAvailable === false || (workerData.activeTasks || 0) >= (workerData.maxTaskCapacity || 5)) {
         throw new Error('WORKER_CAPACITY');
       }
@@ -69,21 +73,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         assignedContractor: worker.name,
         workerAssignmentStatus: 'Accepted',
         acceptedAt,
-        selfAssigned: freshData.selfAssigned || isStillOpenLowPriority,
+        selfAssigned: freshData.selfAssigned || !isStillAssigned,
         status: 'Assigned',
         queueStatus: 'assigned_worker',
         workflowStage: 'assigned_worker',
         ...(updatedDepartmentTasks ? { departmentTasks: updatedDepartmentTasks } : {}),
         actionLog: FieldValue.arrayUnion(
-          workerLog('Assigned', worker.name, isStillOpenLowPriority ? 'Task self-assigned by worker.' : 'Task accepted by worker.')
+          workerLog('Assigned', worker.name, isStillAssigned ? 'Task accepted by worker.' : 'Task self-assigned by worker.')
         ),
       });
 
       // Increment activeTasks ONLY if first time accepting this task (prevent double increment)
       if (isFirstAssignment) {
-        const workerRef = firestore.collection('users').doc(worker.uid);
-        const wDoc = await transaction.get(workerRef);
-        const currentActive = wDoc.exists ? (wDoc.data().activeTasks ?? 0) : 0;
+        const currentActive = workerSnap.exists ? (workerData.activeTasks ?? 0) : 0;
         transaction.update(workerRef, { activeTasks: currentActive + 1 });
       }
     });

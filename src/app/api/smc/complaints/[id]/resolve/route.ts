@@ -35,7 +35,7 @@ const STATUS_PUSH_MESSAGES: Record<string, { title: string; body: string }> = {
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const identity = await requireRequestIdentity(request, ['official', 'admin']);
+    const identity = await requireRequestIdentity(request, ['department_head', 'official', 'admin']);
 
     const params = await context.params;
     const reportId = params.id?.trim();
@@ -69,6 +69,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const currentReport = reportDoc.data() as Report;
       requireDepartmentAccess(currentReport, identity);
       
+      const isBeingResolved = newStatus === 'Resolved' && currentReport.status !== 'Resolved';
+      const linkedSnap = isBeingResolved
+        ? await firestore.collection('reports').where('linkedIncidentId', '==', reportId).get()
+        : null;
+
       // Authoritative State Machine Validation (Phase 5)
       if (newStatus === 'Resolved') {
         if (currentReport.status !== 'Under Verification') throw new Error('Complaint must be submitted for verification before it can be resolved.');
@@ -78,8 +83,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         (updatePayload as any).evidenceVerification = { passed: evidence.passed, score: evidence.score, reasons: evidence.reasons, verifiedAt: new Date().toISOString() };
         (updatePayload as any).agentLogs = FieldValue.arrayUnion(evidence.receipt);
       }
-
-      const isBeingResolved = newStatus === 'Resolved' && currentReport.status !== 'Resolved';
 
       applyReportStatusTransition(
         transaction,
@@ -93,15 +96,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         },
       );
 
-      if (isBeingResolved) {
-        const userRef = firestore.collection('users').doc(currentReport.userId);
-        transaction.update(userRef, { points: FieldValue.increment(10) });
-
-        // Batch resolve linked duplicate reports while preserving individual citizen records
-        const linkedSnap = await firestore
-          .collection('reports')
-          .where('linkedIncidentId', '==', reportId)
-          .get();
+      if (isBeingResolved && linkedSnap) {
+        if (currentReport.userId) {
+          const userRef = firestore.collection('users').doc(currentReport.userId);
+          transaction.update(userRef, { points: FieldValue.increment(10) });
+        }
 
         const timestampIso = new Date().toISOString();
         const batchLogEntry = {
@@ -121,8 +120,10 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
               queueStatus: 'completed',
               actionLog: FieldValue.arrayUnion(batchLogEntry),
             });
-            const childUserRef = firestore.collection('users').doc(docSnap.data().userId);
-            transaction.update(childUserRef, { points: FieldValue.increment(10) });
+            if (docSnap.data().userId) {
+              const childUserRef = firestore.collection('users').doc(docSnap.data().userId);
+              transaction.update(childUserRef, { points: FieldValue.increment(10) });
+            }
           }
         });
       }

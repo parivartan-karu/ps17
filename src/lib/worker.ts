@@ -18,9 +18,13 @@ export function getWorkerName(user: FirebaseUser | null, profile: User | null | 
   return profile?.name?.trim() || user?.displayName?.trim() || user?.email?.split('@')[0] || 'Field Worker';
 }
 
-export function isAssignedToWorker(report: Report, workerId: string, workerName: string) {
-  if (!workerId && !workerName) return false;
-  return report.assignedWorkerId === workerId || (!!workerName && report.assignedContractor === workerName);
+export function isAssignedToWorker(report: Report, workerId: string, workerName: string, employeeId?: string) {
+  if (!workerId && !workerName && !employeeId) return false;
+  return (
+    report.assignedWorkerId === workerId ||
+    (!!workerName && report.assignedContractor === workerName) ||
+    (!!employeeId && report.assignedWorkerId === employeeId)
+  );
 }
 
 export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: string) {
@@ -28,14 +32,14 @@ export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: strin
   const difficulty = report.difficulty || 'Moderate';
   const reportDept = normalizeDepartmentId(report.departmentId || report.department);
   const workerDept = normalizeDepartmentId(workerDepartmentId);
-  const deptMatches = !workerDept || !reportDept || workerDept === reportDept;
+  const deptMatches = !workerDept || !reportDept || workerDept === reportDept || workerDept === 'dept_public_works' || reportDept === 'dept_public_works';
   return (
     deptMatches &&
     (priority === 'Low' || priority === 'Medium') &&
-    (difficulty === 'Easy' || difficulty === 'Moderate') &&
+    difficulty !== 'Hard' &&
     !report.assignedWorkerId &&
     !report.assignedContractor &&
-    (report.status === 'Submitted' || report.status === 'Assigned')
+    (report.status === 'Submitted' || report.status === 'Assigned' || report.status === 'Under Verification')
   );
 }
 

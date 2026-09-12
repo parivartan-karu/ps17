@@ -7,6 +7,7 @@ import { Timestamp } from 'firebase-admin/firestore';
 import type { Report, ActionLogEntry, ReportStatus, TaskDifficulty, User } from './types';
 import type { PriorityLevel } from './sla';
 import { z } from 'zod';
+import { normalizeDepartmentId } from './departments';
 
 // Worker session contract. Keep these exports in the shared module because both
 // the route handler and the server-side session helpers depend on them.
@@ -50,22 +51,27 @@ export const workerProfileUpdateSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
 });
 
-export function isAssignedToWorker(report: Report, workerId: string, workerName: string) {
-  return report.assignedWorkerId === workerId || (!!workerName && report.assignedContractor === workerName);
+export function isAssignedToWorker(report: Report, workerId: string, workerName: string, employeeId?: string) {
+  if (!workerId && !workerName && !employeeId) return false;
+  return (
+    report.assignedWorkerId === workerId ||
+    (!!workerName && report.assignedContractor === workerName) ||
+    (!!employeeId && report.assignedWorkerId === employeeId)
+  );
 }
 
 export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: string) {
   const priority = report.priority || 'Medium';
-  const reportDeptId = report.departmentId || report.department;
-  const workerDeptId = workerDepartmentId;
-  const deptMatches = !workerDeptId || !reportDeptId || workerDeptId === reportDeptId;
+  const reportDept = normalizeDepartmentId(report.departmentId || report.department);
+  const workerDept = normalizeDepartmentId(workerDepartmentId);
+  const deptMatches = !workerDept || !reportDept || workerDept === reportDept || workerDept === 'dept_public_works' || reportDept === 'dept_public_works';
 
   return (
     deptMatches &&
     (priority === 'Low' || priority === 'Medium') &&
     !report.assignedWorkerId &&
     !report.assignedContractor &&
-    (report.status === 'Submitted' || report.status === 'Assigned') &&
+    (report.status === 'Submitted' || report.status === 'Assigned' || report.status === 'Under Verification') &&
     report.difficulty !== 'Hard'
   );
 }

@@ -23,6 +23,7 @@ import { useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { User as UserType } from '@/lib/types';
 import { Skeleton } from './ui/skeleton';
+import { SignOutConfirmDialog } from '@/components/sign-out-confirm-dialog';
 
 
 export default function UserNav() {
@@ -139,9 +140,11 @@ export default function UserNav() {
           ))}
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
-          Log out
-        </DropdownMenuItem>
+        <SignOutConfirmDialog onConfirm={handleLogout}>
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            Log out
+          </DropdownMenuItem>
+        </SignOutConfirmDialog>
       </DropdownMenuContent>
     </DropdownMenu>
   );
