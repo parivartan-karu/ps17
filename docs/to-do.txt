@@ -5,6 +5,7 @@ Absolutely. Here is the **concise implementation backlog**. Each issue is writte
 ## P0: Critical fixes
 
 ### TASK 01 — Unify PMC/SMC naming
+**STATUS: DONE for product-facing copy. Route/component identifiers retain `smc` for backwards compatibility.**
 
 **Issue:** Project uses both PMC and SMC terminology.
 
@@ -19,6 +20,7 @@ Absolutely. Here is the **concise implementation backlog**. Each issue is writte
 ---
 
 ### TASK 02 — Single source of truth for SLA
+**STATUS: DONE. `settings/slaConfig` is now the shared persisted source for admin UI, ticket creation, cron monitoring, and public policy.**
 
 **Issue:** SLA values shown in UI don't always match values used by the SLA engine.
 
@@ -34,6 +36,7 @@ Absolutely. Here is the **concise implementation backlog**. Each issue is writte
 ---
 
 ### TASK 03 — Monitor Response SLA separately
+**STATUS: DONE. Response and resolution windows are monitored independently with warnings and escalation.**
 
 **Issue:** Resolution SLA is monitored, but response SLA needs independent monitoring.
 
@@ -82,6 +85,7 @@ validateTransition()
 ---
 
 ### TASK 05 — Fix escalation recipient logic
+**STATUS: DONE. L1 resolves the department head and L2 resolves a municipal official/admin.**
 
 **Issue:** L1/L2 escalation can use generic roles without consistently resolving the actual responsible person.
 
@@ -633,3 +637,8 @@ If you're assigning these to your team, do them in this order:
 Do **1 → 10 → 11 → 12 → 16 → 18 → 21 → 23**.
 
 That gives you the biggest improvement in **correctness + uniqueness + judge impact** without rebuilding the project.
+### Remaining completion update
+- TASK 21 Command Center: implemented city-wide operational KPI cards, SLA/escalation/unassigned queues, department and worker workload, incident clusters, live map, and agent activity.
+- TASK 22 Incident Command View: implemented `/smc/incident/[id]` as the judge-facing single-incident operational screen.
+- TASK 04 Authoritative status transition service: implemented `src/lib/status-transition-service.ts` and wired core worker/department assignment status mutations to it; central resolve/override paths remain specialized because they perform additional transactional checks.
+- EventBus: removed unused `registerEventBusListeners()`; durable `workflow_events` via `emitWorkflowEvent()` is the canonical event mechanism.

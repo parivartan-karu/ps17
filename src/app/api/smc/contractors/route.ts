@@ -15,7 +15,7 @@ function normalizeSegment(value: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRequestIdentity(request, ['official', 'department_head']);
+    await requireRequestIdentity(request, ['official', 'admin']);
 
     const body = await request.json();
 

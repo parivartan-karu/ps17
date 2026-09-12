@@ -12,7 +12,7 @@ import {
   type AgentLogEntry,
 } from './agents/types';
 import { normalizeDepartment, type CanonicalDepartmentId } from '@/lib/departments';
-import type { Report, ActionLogEntry, IllegalDumpingData } from '@/lib/types';
+import type { Report, ActionLogEntry, IllegalDumpingData, TaskDifficulty } from '@/lib/types';
 
 import { coordinationAgent, type CoordinationOutput } from './agents/coordination-agent';
 import type { DepartmentTask } from '@/lib/complaint-context';
@@ -53,6 +53,7 @@ export type TriageResult = {
   department: string;
   category: string;
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  difficulty: TaskDifficulty;
   riskScore: number;
   riskScoreReasons: string[];
   departmentTasks: DepartmentTask[];
@@ -407,10 +408,21 @@ export async function runTriagePipeline(input: OrchestratorInput): Promise<Triag
 
   const routingStatus: TriageResult['routingStatus'] = requiresManualReview ? 'needs_review' : 'assigned';
 
-  // Auto-assignment policy decision
+  // Difficulty is intentionally separate from priority. It controls whether a
+  // straightforward field task can be self-claimed by an available worker.
+  const difficulty: TaskDifficulty = (() => {
+    const text = `${validatedCategory} ${intakeRes.cleanedDescription}`.toLowerCase();
+    if (validatedCategory.toLowerCase().includes('pothole') || text.includes('bulb') || text.includes('streetlight') || text.includes('garbage collection')) return 'Easy';
+    if (validatedPriority === 'Critical' || text.includes('burst') || text.includes('collapse') || text.includes('live wire') || text.includes('major')) return 'Hard';
+    return 'Moderate';
+  })();
+
+  // Auto-assignment policy: keep low/medium + easy work in the worker queue.
+  // Critical work is still eligible for immediate automatic assignment.
+
   const autoAssignEligible =
     routingGate === 'automatic' &&
-    (validatedPriority === 'Critical' || (overallConfidence >= 0.75 && validatedPriority !== 'Low'));
+    validatedPriority === 'Critical' || (overallConfidence >= 0.75 && validatedPriority !== 'Low' && difficulty !== 'Easy');
 
   let assignedWorkerId: string | null = null;
   let assignedContractor: string | null = null;
@@ -468,6 +480,7 @@ export async function runTriagePipeline(input: OrchestratorInput): Promise<Triag
     department: legacyDepartment,
     category: validatedCategory,
     priority: validatedPriority,
+    difficulty,
     riskScore: prioRes.riskScore,
     riskScoreReasons: prioRes.riskScoreReasons,
     departmentTasks: coordRes.departmentTasks,

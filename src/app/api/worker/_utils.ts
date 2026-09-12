@@ -65,7 +65,7 @@ export async function getWorkerReport(request: NextRequest, reportId: string) {
     reportRef,
     report,
     isAssigned: isAssignedToWorker(report, worker.uid, worker.name),
-    isOpenLowPriority: isOpenLowPriorityTask(report),
+    isOpenLowPriority: isOpenLowPriorityTask(report, worker.profile?.departmentId || worker.profile?.department),
   };
 }
 

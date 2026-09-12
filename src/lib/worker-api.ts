@@ -1,11 +1,42 @@
-import { z } from 'zod';
-import { Timestamp } from 'firebase-admin/firestore';
+/**
+ * Shared ComplaintContext Module for Parivartan
+ * Unified evolving case context object maintained across multi-agent triage and workflow transitions.
+ */
 
-import type { Report, ReportStatus, User } from '@/lib/types';
+import { Timestamp } from 'firebase-admin/firestore';
+import type { Report, ActionLogEntry, ReportStatus, TaskDifficulty, User } from './types';
+import type { PriorityLevel } from './sla';
+import { z } from 'zod';
+
+// Worker session contract. Keep these exports in the shared module because both
+// the route handler and the server-side session helpers depend on them.
+export const SESSION_COOKIE_NAME = 'parivartan_worker_session';
+
+export function cookieOptions(expiresInMs: number) {
+  return {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: Math.max(0, Math.floor(expiresInMs / 1000)),
+  };
+}
+
+export const sessionRequestSchema = z.object({
+  idToken: z.string().min(1, 'idToken is required'),
+});
+
+export type WorkerIdentity = {
+  uid: string;
+  email: string;
+  name: string;
+  profile: Partial<User> | null;
+};
 
 export const workerMediaTypeSchema = z.enum(['image', 'video']);
+
 export const workerStatusUpdateSchema = z.object({
-  status: z.enum(['Assigned', 'In Progress', 'Resolved', 'Rejected']),
+  status: z.enum(['Assigned', 'In Progress', 'Under Verification', 'Rejected', 'Resolved']),
   remarks: z.string().trim().max(500).optional(),
 });
 
@@ -14,8 +45,6 @@ export const workerUploadSchema = z.object({
   mediaType: workerMediaTypeSchema,
   notes: z.string().trim().max(500).optional(),
 });
-
-import { normalizeDepartmentId } from './departments';
 
 export const workerProfileUpdateSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
@@ -27,8 +56,8 @@ export function isAssignedToWorker(report: Report, workerId: string, workerName:
 
 export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: string) {
   const priority = report.priority || 'Medium';
-  const reportDeptId = normalizeDepartmentId(report.departmentId || report.department);
-  const workerDeptId = normalizeDepartmentId(workerDepartmentId);
+  const reportDeptId = report.departmentId || report.department;
+  const workerDeptId = workerDepartmentId;
   const deptMatches = !workerDeptId || !reportDeptId || workerDeptId === reportDeptId;
 
   return (
@@ -36,7 +65,8 @@ export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: strin
     (priority === 'Low' || priority === 'Medium') &&
     !report.assignedWorkerId &&
     !report.assignedContractor &&
-    (report.status === 'Submitted' || report.status === 'Assigned')
+    (report.status === 'Submitted' || report.status === 'Assigned') &&
+    report.difficulty !== 'Hard'
   );
 }
 
@@ -60,13 +90,6 @@ export function toSerializable<T>(value: T): T {
     })
   );
 }
-
-export type WorkerIdentity = {
-  uid: string;
-  email: string;
-  name: string;
-  profile: User | null;
-};
 
 export function summarizePerformance(reports: Report[]) {
   const resolved = reports.filter((report) => report.status === 'Resolved');
@@ -100,18 +123,147 @@ export function nowTimestamp() {
   return new Date().toISOString();
 }
 
-export const SESSION_COOKIE_NAME = 'worker_session';
+export type DepartmentTaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
 
-export const sessionRequestSchema = z.object({
-  idToken: z.string().min(1),
-});
+export type DepartmentTask = {
+  id: string;
+  departmentId: string;
+  departmentName: string;
+  taskName: string;
+  assignedWorkerId?: string;
+  assignedWorkerName?: string;
+  status: DepartmentTaskStatus;
+  difficulty?: TaskDifficulty;
+  priority?: Report['priority'];
+  slaDeadline?: string;
+  dependencyTaskId?: string; // ID of task that must complete first
+  completedAt?: string;
+  notes?: string;
+};
 
-export function cookieOptions(expiresInMs: number) {
+export type ComplaintContext = {
+  complaint: {
+    id: string;
+    userId: string;
+    userName: string;
+    location: string;
+    latitude?: number;
+    longitude?: number;
+    description: string;
+    imageUrl: string;
+    timestamp: string;
+  };
+  classification: {
+    category: string;
+    damageDetected: boolean;
+    damageCategory?: string;
+    severity?: 'Low' | 'Medium' | 'High';
+    confidence: number;
+    modelUsed?: string;
+  };
+  routing: {
+    primaryDepartmentId: string;
+    primaryDepartmentName: string;
+    supportingDepartments?: Array<{ departmentId: string; departmentName: string; role: string }>;
+    confidence: number;
+    reason: string;
+    routingGate: 'automatic' | 'department_verification' | 'manual_review';
+  };
+  priority: {
+    level: PriorityLevel;
+    riskScore: number; // 0 - 100 numerical score
+    reasons: string[];
+    slaResponseDeadline: string;
+    slaResolutionDeadline: string;
+  };
+  dedup: {
+    isDuplicate: boolean;
+    masterIncidentId?: string;
+    similarityScore?: number;
+    relatedReportCount: number;
+  };
+  departmentTasks: DepartmentTask[];
+  verification: {
+    status: 'Pending' | 'Pass' | 'Fail' | 'Rework';
+    score?: number; // 0 - 100
+    beforeWorkMediaUrl?: string;
+    afterWorkMediaUrl?: string;
+    officerNotes?: string;
+  };
+  sla: {
+    responseBreached: boolean;
+    resolutionBreached: boolean;
+    escalationLevel: number;
+    escalatedTo?: string;
+  };
+  auditLog: ActionLogEntry[];
+};
+
+/**
+ * Factory function to construct a fresh ComplaintContext from a Report doc.
+ */
+export function buildComplaintContext(report: Report): ComplaintContext {
+  const prio = (report.priority as PriorityLevel) || 'Medium';
+  const riskScore = report.riskScore ?? report.autoAssignmentScore ?? (prio === 'Critical' ? 90 : prio === 'High' ? 75 : prio === 'Medium' ? 50 : 25);
+  const confidence = report.routingConfidence ?? 0.9;
+  const routingGate = confidence >= 0.85 ? 'automatic' : confidence >= 0.65 ? 'department_verification' : 'manual_review';
+
   return {
-    httpOnly: true,
-    sameSite: 'lax' as const,
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: Math.floor(expiresInMs / 1000),
+    complaint: {
+      id: report.id,
+      userId: report.userId,
+      userName: report.userName,
+      location: report.location,
+      latitude: report.latitude,
+      longitude: report.longitude,
+      description: report.description,
+      imageUrl: report.imageUrl,
+      timestamp: report.timestamp,
+    },
+    classification: {
+      category: report.category || 'General',
+      damageDetected: !!report.aiAnalysis?.damageDetected,
+      damageCategory: report.aiAnalysis?.damageCategory,
+      severity: report.aiAnalysis?.severity,
+      confidence: 0.92,
+      modelUsed: 'gemini-vision',
+    },
+    routing: {
+      primaryDepartmentId: report.departmentId || 'dept_engineering',
+      primaryDepartmentName: report.department || 'Roads Department',
+      confidence,
+      reason: report.routingReason || 'Routed based on issue taxonomy matching.',
+      routingGate,
+    },
+    priority: {
+      level: prio,
+      riskScore,
+      reasons: [
+        `Assigned ${prio} priority based on issue risk score (${riskScore}/100).`,
+        report.slaBreached ? 'SLA deadline exceeded' : 'Standard SLA deadline active',
+      ],
+      slaResponseDeadline: report.slaResponseDeadline || report.timestamp,
+      slaResolutionDeadline: report.slaDeadline || report.timestamp,
+    },
+    dedup: {
+      isDuplicate: !!report.linkedIncidentId,
+      masterIncidentId: report.linkedIncidentId || undefined,
+      similarityScore: report.linkedSimilarityScore || undefined,
+      relatedReportCount: report.relatedReportCount ?? 1,
+    },
+    departmentTasks: (report as any).departmentTasks || [],
+    verification: {
+      status: report.status === 'Resolved' ? 'Pass' : report.status === 'Under Verification' ? 'Pending' : 'Pending',
+      beforeWorkMediaUrl: report.imageUrl,
+      afterWorkMediaUrl: report.afterWorkMediaUrl,
+      officerNotes: report.afterWorkNotes,
+    },
+    sla: {
+      responseBreached: !!report.responseSlaBreached,
+      resolutionBreached: !!report.slaBreached,
+      escalationLevel: report.escalationLevel ?? 0,
+      escalatedTo: report.escalatedTo,
+    },
+    auditLog: report.actionLog || [],
   };
 }

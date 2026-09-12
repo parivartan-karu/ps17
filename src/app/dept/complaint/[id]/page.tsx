@@ -33,7 +33,7 @@ const NEXT_STATUSES: Partial<Record<ReportStatus, ReportStatus[]>> = {
   Submitted: ['Under Verification', 'Rejected'],
   'Under Verification': ['Assigned', 'Rejected'],
   Assigned: ['In Progress', 'Rejected'],
-  'In Progress': ['Resolved', 'Rejected'],
+  'In Progress': ['Under Verification', 'Rejected'],
 };
 
 const statusColors: Record<string, string> = {
@@ -152,7 +152,7 @@ export default function DeptComplaintDetailPage() {
             <p className="text-xs font-medium opacity-70">#{report.id.slice(-6).toUpperCase()}</p>
             <h1 className="text-lg font-bold mt-0.5">{report.status}</h1>
           </div>
-          <Badge className={`${statusColors[report.status]} border font-semibold`}>{report.priority ?? 'Low'} Priority</Badge>
+          <div className="flex flex-wrap gap-2 justify-end"><Badge className={`${statusColors[report.status]} border font-semibold`}>{report.priority ?? 'Low'} Priority</Badge><Badge variant="outline">Difficulty: {report.difficulty ?? 'Moderate'}</Badge>{typeof report.riskScore === 'number' && <Badge variant="outline">Risk {report.riskScore}/100</Badge>}</div>
         </div>
       </div>
 
@@ -188,6 +188,29 @@ export default function DeptComplaintDetailPage() {
 
       {/* Incident & Duplicate Consolidation Banner */}
       <IncidentConsolidationBanner report={report} />
+
+      {report.departmentTasks?.length ? (
+        <Card className="border-0 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Coordinated Department Tasks</CardTitle>
+            <CardDescription>Each operational task has its own owner, status and dependency.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {report.departmentTasks.map((task) => (
+              <div key={task.id} className="rounded-xl border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-sm">{task.taskName}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{task.departmentName}{task.assignedWorkerName ? ` • ${task.assignedWorkerName}` : ' • Unassigned'}</p>
+                  </div>
+                  <div className="flex gap-2"><Badge variant="outline">{task.status}</Badge>{task.difficulty && <Badge variant="outline">{task.difficulty}</Badge>}</div>
+                </div>
+                {task.dependencyTaskId && <p className="mt-2 text-xs text-amber-700">Blocked until task {task.dependencyTaskId} is completed.</p>}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Department Verification & Evidence Panel */}
       <DepartmentVerificationPanel report={report} />

@@ -44,7 +44,7 @@ const FALLBACK: AIDamageAssessmentOutput = {
   damageCategory: 'None',
   severity: 'Low',
   verificationSuggestion: 'Needs manual verification',
-  description: 'AI analysis is temporarily unavailable. Please manually select the correct problem category (e.g., Garbage/Debris, Pothole, Crack, Streetlight Issue) and write a description based on your photo.',
+  description: '',
   suggestedDepartment: 'Unassigned',
   suggestedPriority: 'Medium',
   duplicateSuggestion: 'Unable to assess — manual verification required.',
@@ -162,7 +162,7 @@ export async function aiDamageAssessment(input: AIDamageAssessmentInput): Promis
           'Authorization': `Bearer ${GROQ_API_KEY}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model: process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct',
           max_tokens: 1024,
           messages: [
             {
@@ -171,6 +171,10 @@ export async function aiDamageAssessment(input: AIDamageAssessmentInput): Promis
                 {
                   type: 'text',
                   text: SYSTEM_PROMPT,
+                },
+                {
+                  type: 'image_url',
+                  image_url: { url: input.mediaDataUri },
                 },
               ],
             },

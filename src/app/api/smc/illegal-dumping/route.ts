@@ -15,13 +15,7 @@ export const runtime = 'nodejs';
  */
 export async function PATCH(request: NextRequest) {
   try {
-    let identity;
-    try {
-      identity = await requireRequestIdentity(request, ['admin', 'official', 'department_head']);
-    } catch (authErr) {
-      // Fallback: verify authenticated identity if explicit role restriction fails in dev
-      identity = await requireRequestIdentity(request);
-    }
+    const identity = await requireRequestIdentity(request, ['official', 'admin']);
     const body = await request.json() as {
       reportId: string;
       action: 'VERIFY' | 'REJECT' | 'INSUFFICIENT_EVIDENCE' | 'ISSUE_FINE' | 'UPDATE_FINE';

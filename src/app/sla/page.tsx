@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Clock, ShieldAlert } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { DEFAULT_SLA_CONFIG, type PriorityLevel } from '@/lib/sla';
+import { DEFAULT_SLA_CONFIG, type PriorityLevel, type SlaConfig } from '@/lib/sla';
+import { useEffect, useState } from 'react';
 
 const priorityOrder: PriorityLevel[] = ['Critical', 'High', 'Medium', 'Low'];
 
@@ -19,6 +20,23 @@ const priorityBadgeColors: Record<PriorityLevel, string> = {
 
 export default function SLAPolicyPage() {
   const router = useRouter();
+  const [config, setConfig] = useState<SlaConfig>(DEFAULT_SLA_CONFIG);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/sla-config/public', { cache: 'no-store' })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Failed to load SLA policy.');
+        if (!cancelled && data.config?.global) {
+          setConfig((current) => ({ ...current, ...data.config, global: { ...current.global, ...data.config.global } }));
+        }
+      })
+      .catch(() => { /* Keep the safe default policy visible if the public read fails. */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-4xl space-y-6">
@@ -64,11 +82,11 @@ export default function SLAPolicyPage() {
             </ul>
           </div>
 
-          {/* Authoritative SLA Table directly derived from DEFAULT_SLA_CONFIG */}
+          {/* Authoritative SLA Table from the live persisted configuration */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
             <h3 className="text-base font-bold text-slate-900">Authoritative SLA Targets</h3>
             <p className="text-xs text-slate-500">
-              Target response and resolution deadlines computed dynamically by the PMC SLA Engine:
+              Target response and resolution deadlines from the live PMC SLA Engine configuration{loading ? ' (loading...)' : ''}:
             </p>
 
             <div className="rounded-xl border border-slate-200 overflow-hidden shadow-2xs">
@@ -83,7 +101,7 @@ export default function SLAPolicyPage() {
                 </TableHeader>
                 <TableBody className="divide-y divide-slate-100">
                   {priorityOrder.map((prio) => {
-                    const target = DEFAULT_SLA_CONFIG.global[prio];
+                    const target = config.global[prio];
                     return (
                       <TableRow key={prio} className="hover:bg-slate-50/80">
                         <TableCell>

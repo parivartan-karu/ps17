@@ -1,11 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/firebase/server';
-import { getSlaTargets, DEFAULT_SLA_CONFIG, type SlaConfig } from '@/lib/sla';
+import { getSlaTargets, type SlaConfig } from '@/lib/sla';
+import { getSlaConfig } from '@/lib/sla-config-server';
 import { dispatchNotification } from '@/ai/agents/communication-agent';
 import type { Report } from '@/lib/types';
+import { emitWorkflowEvent } from '@/lib/workflow-events';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
+
+async function findDepartmentHeadId(firestore: any, departmentId?: string, departmentName?: string): Promise<string | undefined> {
+  if (!departmentId && !departmentName) return undefined;
+
+  if (departmentId) {
+    const snap = await firestore
+      .collection('users')
+      .where('role', '==', 'department_head')
+      .where('departmentId', '==', departmentId)
+      .limit(1)
+      .get();
+    if (!snap.empty) return snap.docs[0].id;
+  }
+
+  if (departmentName) {
+    const snap = await firestore
+      .collection('users')
+      .where('role', '==', 'department_head')
+      .where('department', '==', departmentName)
+      .limit(1)
+      .get();
+    if (!snap.empty) return snap.docs[0].id;
+  }
+
+  return undefined;
+}
+
+async function findMunicipalAdminId(firestore: any): Promise<string | undefined> {
+  const [officials, admins] = await Promise.all([
+    firestore.collection('users').where('role', '==', 'official').limit(1).get(),
+    firestore.collection('users').where('role', '==', 'admin').limit(1).get(),
+  ]);
+  if (!officials.empty) return officials.docs[0].id;
+  if (!admins.empty) return admins.docs[0].id;
+  return undefined;
+}
 
 /**
  * Validates CRON_SECRET authorization.
@@ -52,16 +90,21 @@ export async function handleSlaMonitor(request: NextRequest) {
 
   try {
     const { firestore } = await getFirebaseAdmin();
+    const departmentHeadCache = new Map<string, string | undefined>();
+    const getDepartmentHeadId = async (report: Report) => {
+      const key = report.departmentId || report.department || 'unknown';
+      if (!departmentHeadCache.has(key)) departmentHeadCache.set(key, await findDepartmentHeadId(firestore, report.departmentId, report.department));
+      return departmentHeadCache.get(key);
+    };
 
-    // 1. Fetch SLA Configuration (with fallback to default)
-    let slaConfig: SlaConfig = DEFAULT_SLA_CONFIG;
+    // 1. Fetch the same authoritative SLA configuration used when tickets are created.
+    let slaConfig: SlaConfig;
     try {
-      const configDoc = await firestore.collection('settings').doc('sla').get();
-      if (configDoc.exists) {
-        slaConfig = configDoc.data() as SlaConfig;
-      }
+      slaConfig = await getSlaConfig(firestore);
     } catch {
-      /* fallback to DEFAULT_SLA_CONFIG */
+      // The helper already falls back to defaults; retain a safe typed fallback if Firebase is unavailable.
+      const { DEFAULT_SLA_CONFIG } = await import('@/lib/sla');
+      slaConfig = DEFAULT_SLA_CONFIG;
     }
 
     // 2. Query open reports (not Resolved and not Rejected)
@@ -101,58 +144,109 @@ export async function handleSlaMonitor(request: NextRequest) {
       const departmentId = report.departmentId || report.department;
       const target = getSlaTargets(priority, departmentId, slaConfig);
 
-      // ── RESPONSE SLA MONITORING (Task 03) ──────────────────────────────────
+      // ── RESPONSE SLA MONITORING ───────────────────────────────────────────
+      // Response SLA has its own 50% warning, 80% warning and breach path.
       if (['Submitted', 'Under Verification'].includes(report.status) && report.slaResponseDeadline) {
         const respDeadlineMs = new Date(report.slaResponseDeadline).getTime();
-        if (!isNaN(respDeadlineMs) && nowMs >= respDeadlineMs && !report.responseSlaBreached) {
-          const respActionLog = {
-            status: report.status,
-            timestamp: nowIso,
-            actor: 'System' as const,
-            actorName: 'SLA Automation Monitor',
-            notes: `🚨 Response SLA Breached! Complaint unacknowledged past ${target.responseHours}h limit. Escalated to Department Head.`,
-          };
+        const responseStartMs = new Date(report.timestamp).getTime();
+        if (!isNaN(respDeadlineMs) && !isNaN(responseStartMs)) {
+          const responseWindowMs = Math.max(1, respDeadlineMs - responseStartMs);
+          const warning50Ms = responseStartMs + Math.round(responseWindowMs * 0.5);
+          const warning80Ms = responseStartMs + Math.round(responseWindowMs * 0.8);
 
-          await firestore.runTransaction(async (transaction: any) => {
-            const ref = firestore.collection('reports').doc(report.id);
-            const currentDoc = await transaction.get(ref);
-            if (!currentDoc.exists) return;
-
-            const data = currentDoc.data() as Report;
-            const existingLogs = data.actionLog || [];
-
-            transaction.update(ref, {
-              responseSlaBreached: true,
-              escalationLevel: Math.max(1, data.escalationLevel ?? 0),
-              escalatedTo: `${data.department || 'Department'} Head`,
-              lastEscalatedAt: nowIso,
-              actionLog: [...existingLogs, respActionLog],
+          if (nowMs >= warning50Ms && nowMs < respDeadlineMs && !(report as any).responseSlaWarning50Sent) {
+            await firestore.collection('reports').doc(report.id).update({
+              responseSlaWarning50Sent: true,
+              actionLog: (report.actionLog || []).concat({
+                status: report.status,
+                timestamp: nowIso,
+                actor: 'System',
+                actorName: 'SLA Automation Monitor',
+                notes: 'Response SLA warning at 50% of the acknowledgement window.',
+              }),
             });
-          });
+            await dispatchNotification({
+              input: {
+                type: 'reminder', reportId: report.id, reportTitle: report.description, category: report.category,
+                departmentId: report.departmentId, departmentName: report.department, priority: report.priority,
+                targetUserId: await getDepartmentHeadId(report), targetUserRole: 'department_head',
+                customDetails: 'Response SLA is 50% elapsed. Please acknowledge the complaint.',
+              },
+              sendSms: false,
+            });
+            remindersSent++;
+          }
 
-          await dispatchNotification({
-            input: {
-              type: 'escalation',
-              reportId: report.id,
-              reportTitle: report.description,
-              category: report.category,
-              departmentId: report.departmentId,
-              departmentName: report.department,
-              priority: report.priority,
-              escalationLevel: 1,
-              targetUserRole: 'department_head',
-              customDetails: `Response SLA Breached (${target.responseHours}h acknowledgement limit exceeded)`,
-            },
-            sendSms: true,
-          });
+          if (nowMs >= warning80Ms && nowMs < respDeadlineMs && !(report as any).responseSlaWarning80Sent) {
+            await firestore.collection('reports').doc(report.id).update({
+              responseSlaWarning80Sent: true,
+              actionLog: (report.actionLog || []).concat({
+                status: report.status,
+                timestamp: nowIso,
+                actor: 'System',
+                actorName: 'SLA Automation Monitor',
+                notes: 'Response SLA warning at 80% of the acknowledgement window.',
+              }),
+            });
+            await dispatchNotification({
+              input: {
+                type: 'reminder', reportId: report.id, reportTitle: report.description, category: report.category,
+                departmentId: report.departmentId, departmentName: report.department, priority: report.priority,
+                targetUserId: await getDepartmentHeadId(report), targetUserRole: 'department_head',
+                customDetails: 'Response SLA is 80% elapsed. Immediate acknowledgement is required.',
+              },
+              sendSms: false,
+            });
+            remindersSent++;
+          }
 
-          escalationsProcessed++;
+          if (nowMs >= respDeadlineMs && !(report as any).responseSlaBreached) {
+            const respActionLog = {
+              status: report.status,
+              timestamp: nowIso,
+              actor: 'System' as const,
+              actorName: 'SLA Automation Monitor',
+              notes: `Response SLA breached after ${target.responseHours}h. Escalated to Department Head.`,
+            };
+
+            await firestore.runTransaction(async (transaction: any) => {
+              const ref = firestore.collection('reports').doc(report.id);
+              const currentDoc = await transaction.get(ref);
+              if (!currentDoc.exists) return;
+              const data = currentDoc.data() as Report;
+              transaction.update(ref, {
+                responseSlaBreached: true,
+                escalationLevel: Math.max(1, data.escalationLevel ?? 0),
+                escalatedTo: `${data.department || 'Department'} Head`,
+                lastEscalatedAt: nowIso,
+                actionLog: [...(data.actionLog || []), respActionLog],
+              });
+            });
+
+            await dispatchNotification({
+              input: {
+                type: 'escalation', reportId: report.id, reportTitle: report.description, category: report.category,
+                departmentId: report.departmentId, departmentName: report.department, priority: report.priority,
+                escalationLevel: 1, targetUserRole: 'department_head',
+                targetUserId: await getDepartmentHeadId(report),
+                customDetails: `Response SLA breached (${target.responseHours}h acknowledgement limit exceeded).`,
+              },
+              sendSms: true,
+            });
+
+            try {
+              await emitWorkflowEvent('SLA_BREACHED', report.id, { kind: 'response', escalationLevel: 1 }, undefined, 'AI_System', report.departmentId);
+            } catch (eventError) {
+              console.warn('[sla-monitor] Event logging failed:', eventError);
+            }
+            escalationsProcessed++;
+          }
         }
       }
 
-      const reminderHours = target.reminderBeforeBreachHours || 4;
-      const reminderMs = reminderHours * 3600 * 1000;
-      const reminderThresholdMs = deadlineMs - reminderMs;
+      const resolutionStartMs = new Date(report.timestamp).getTime();
+      const resolutionWindowMs = Math.max(1, deadlineMs - resolutionStartMs);
+      const reminderThresholdMs = resolutionStartMs + Math.round(resolutionWindowMs * 0.8);
 
       // ── RESOLUTION SLA BREACHED (now >= deadlineMs) ──────────────────────────
       if (nowMs >= deadlineMs) {
@@ -212,6 +306,7 @@ export async function handleSlaMonitor(request: NextRequest) {
           });
         });
 
+        try { await emitWorkflowEvent('SLA_BREACHED', report.id, { kind: 'resolution', escalationLevel: newEscalationLevel, escalatedTo: escalatedToTitle }, undefined, 'AI_System', report.departmentId); } catch (eventError) { console.warn('[sla-monitor] Event logging failed:', eventError); }
         escalationsProcessed++;
         reportUpdates.push({ id: report.id, type: 'escalation', level: newEscalationLevel });
 
@@ -227,8 +322,8 @@ export async function handleSlaMonitor(request: NextRequest) {
             priority: report.priority,
             escalationLevel: newEscalationLevel,
             assignedWorkerName: report.assignedContractor,
-            targetUserId: report.userId,
-            targetUserRole: 'department_head',
+            targetUserId: newEscalationLevel === 1 ? await getDepartmentHeadId(report) : await findMunicipalAdminId(firestore),
+            targetUserRole: newEscalationLevel === 1 ? 'department_head' : 'official',
             customDetails: `Escalated to ${escalatedToTitle}`,
           },
           sendSms: true, // Escalations may use SMS where configured
@@ -238,7 +333,7 @@ export async function handleSlaMonitor(request: NextRequest) {
       }
 
       // ── CASE B: NEAR-BREACH REMINDER (reminderThresholdMs <= nowMs < deadlineMs) ─
-      if (nowMs >= reminderThresholdMs && nowMs < deadlineMs && !report.slaBreached) {
+      if (nowMs >= reminderThresholdMs && nowMs < deadlineMs && !report.slaBreached && !(report as any).resolutionSlaWarning80Sent) {
         // IDEMPOTENCY CHECK:
         // Skip if reminder was already sent for this deadline window
         const lastReminderMs = report.lastReminderSentAt ? new Date(report.lastReminderSentAt).getTime() : 0;
@@ -264,10 +359,12 @@ export async function handleSlaMonitor(request: NextRequest) {
 
           transaction.update(ref, {
             lastReminderSentAt: nowIso,
+            resolutionSlaWarning80Sent: true,
             actionLog: [...existingLogs, newActionLog],
           });
         });
 
+        try { await emitWorkflowEvent('SLA_WARNING', report.id, { kind: 'resolution', deadline: report.slaDeadline }, undefined, 'AI_System', report.departmentId); } catch (eventError) { console.warn('[sla-monitor] Event logging failed:', eventError); }
         remindersSent++;
         reportUpdates.push({ id: report.id, type: 'reminder' });
 

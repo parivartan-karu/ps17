@@ -15,7 +15,7 @@ export interface SendSMSParams {
   message: string;
 }
 
-const MAX_SMS_CHUNK_LENGTH = 300;
+const MAX_SMS_CHUNK_LENGTH = 1400;
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_BASE_DELAY_MS = 500;
 
@@ -188,48 +188,46 @@ export async function sendSMS({
   message,
 }: SendSMSParams): Promise<{ success: boolean; messageSid?: string; error?: string }> {
   try {
-    // 1. Attempt Fast2SMS if API key present
-    const fastRes = await sendFast2SMS(phoneNumber, message);
-    if (fastRes) {
-      if (fastRes.success) return fastRes;
-      console.warn('Fast2SMS failed, falling back to Twilio:', fastRes.error);
+    const normalizedPhoneNumber = normalizePhoneNumber(phoneNumber);
+    if (!/^\+[1-9]\d{9,14}$/.test(normalizedPhoneNumber)) {
+      return { success: false, error: 'Invalid recipient phone number.' };
     }
 
-    // 2. Twilio Gateway
+    const cleanMessage = normalizeSmsText(message);
+    if (!cleanMessage) {
+      return { success: false, error: 'SMS message is empty.' };
+    }
+
+    // Prefer Fast2SMS for Indian numbers when configured. Otherwise use Twilio.
+    const fastRes = await sendFast2SMS(normalizedPhoneNumber, cleanMessage);
+    if (fastRes?.success) return fastRes;
+    if (fastRes?.error) console.warn('[SMS] Fast2SMS failed, falling back to Twilio:', fastRes.error);
+
     if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_PHONE_NUMBER) {
-      console.error('Twilio credentials not configured');
-      return { success: false, error: 'SMS credentials not configured' };
+      return { success: false, error: 'No SMS provider is configured.' };
     }
 
     const auth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
-    const messageParts = splitSmsMessage(message);
+    const messageParts = splitSmsMessage(cleanMessage);
     const messageSids: string[] = [];
 
     for (let index = 0; index < messageParts.length; index += 1) {
       const rawPart = messageParts[index];
       const partPrefix = messageParts.length > 1 ? `(${index + 1}/${messageParts.length}) ` : '';
-      const body = `${partPrefix}${rawPart}`;
+      const result = await sendMessagePart({
+        auth,
+        phoneNumber: normalizedPhoneNumber,
+        body: `${partPrefix}${rawPart}`,
+      });
 
-      const partResult = await sendMessagePart({ auth, phoneNumber, body });
-      if (!partResult.success) {
-        return partResult;
-      }
-
-      if (partResult.messageSid) {
-        messageSids.push(partResult.messageSid);
-      }
+      if (!result.success) return result;
+      if (result.messageSid) messageSids.push(result.messageSid);
     }
 
-    return {
-      success: true,
-      messageSid: messageSids.join(','),
-    };
+    return { success: true, messageSid: messageSids.join(',') };
   } catch (error) {
-    console.error('Error sending SMS:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    console.error('[SMS] Unexpected error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown SMS error' };
   }
 }
 

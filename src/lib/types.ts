@@ -1,3 +1,5 @@
+import type { AgentLogEntry } from '@/ai/agents/types';
+
 // Type definitions for the Parivartan platform
 
 // ─── Civic Service Registration ───────────────────────────────────────────────
@@ -69,6 +71,7 @@ export type User = {
 export type ReportStatus = 'Submitted' | 'Under Verification' | 'Assigned' | 'In Progress' | 'Resolved' | 'Rejected';
 export type WorkerMediaType = 'image' | 'video';
 export type WorkerAssignmentStatus = 'Pending' | 'Accepted' | 'Rejected';
+export type TaskDifficulty = 'Easy' | 'Moderate' | 'Hard';
 
 export type ActionLogEntry = {
   status: ReportStatus;
@@ -102,6 +105,8 @@ export type Report = {
   assignedBy?: string; // Who assigned the task (department head or admin)
   assignmentMethod?: 'auto_assign' | 'admin_assign' | 'admin_override' | 'bulk_assign' | 'queue_assign';
   priority?: 'Low' | 'Medium' | 'High' | 'Critical';
+  difficulty?: TaskDifficulty;
+  riskScoreReasons?: string[];
   estimatedResolutionTime?: string;
   afterImageUrl?: string;
   beforeWorkMediaUrl?: string;
@@ -151,6 +156,8 @@ export type Report = {
   escalatedTo?: string;
   riskScore?: number;
   departmentTasks?: import('./complaint-context').DepartmentTask[];
+  evidenceVerification?: { passed: boolean; score: number; reasons: string[]; verifiedAt: string };
+  agentLogs?: AgentLogEntry[];
   lastReminderSentAt?: string;
   lastEscalatedAt?: string;
 };

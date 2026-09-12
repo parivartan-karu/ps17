@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { collection } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+
 import { ArrowRight, Loader2, MapPin, Clock, HardHat, Sparkles } from 'lucide-react';
 
-import { useAuth, useCollection, useMemoFirebase } from '@/firebase';
-import { useFirestore } from '@/firebase/provider';
+import { useAuth } from '@/firebase';
 import { useWorkerProfile } from '@/hooks/use-worker-profile';
 import { isOpenLowPriorityTask } from '@/lib/worker';
 import type { Report } from '@/lib/types';
@@ -21,23 +20,28 @@ import { formatDistanceToNow } from 'date-fns';
 
 export default function WorkerOpenTasksPage() {
   const auth = useAuth();
-  const firestore = useFirestore();
   const { workerId, workerName, isLoading: isWorkerLoading } = useWorkerProfile();
   const { toast } = useToast();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
 
-  const reportsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return collection(firestore, 'reports');
-  }, [firestore]);
+  const [openTasks, setOpenTasks] = useState<Report[]>([]);
+  const [areReportsLoading, setAreReportsLoading] = useState(true);
 
-  const { data: reports, isLoading: areReportsLoading } = useCollection<Report>(reportsQuery);
+  async function loadOpenTasks() {
+    if (!auth) return;
+    setAreReportsLoading(true);
+    try {
+      const headers = await buildAuthHeaders(auth);
+      const res = await fetch('/api/worker/tasks/open-low-priority', { headers, cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load tasks');
+      setOpenTasks(data.tasks || []);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Could not load open tasks', description: error.message || 'Please try again.' });
+    } finally { setAreReportsLoading(false); }
+  }
 
-  const openTasks = useMemo(() => {
-    return (reports || [])
-      .filter(isOpenLowPriorityTask)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  }, [reports]);
+  useEffect(() => { loadOpenTasks(); }, [auth]);
 
   const isLoading = isWorkerLoading || areReportsLoading;
 
@@ -55,6 +59,7 @@ export default function WorkerOpenTasksPage() {
         throw new Error(data.error || 'Failed to accept task');
       }
       toast({ title: '✅ Task accepted!', description: 'Head to My Tasks to upload before-work proof.' });
+      await loadOpenTasks();
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Could not accept task', description: error.message || 'Please try again.' });
     } finally {
@@ -69,7 +74,7 @@ export default function WorkerOpenTasksPage() {
          <p className="text-sm font-medium text-white/75">Self-Assignment Queue</p>
         <h1 className="mt-1 text-2xl font-bold">Open Tasks</h1>
         <p className="mt-1 text-sm text-white/80">
-          {isLoading ? 'Loading…' : `${openTasks.length} low/medium priority task${openTasks.length !== 1 ? 's' : ''} available`}
+          {isLoading ? 'Loading…' : `${openTasks.length} eligible low/medium priority task${openTasks.length !== 1 ? 's' : ''} available`}
         </p>
       </div>
 
@@ -77,7 +82,7 @@ export default function WorkerOpenTasksPage() {
       <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
         <HardHat className="mt-0.5 h-4 w-4 shrink-0 text-sky-500" />
         <p className="text-sm text-sky-700">
-          These are low and medium priority tasks not yet assigned to anyone. Accept one to make it yours — first come, first served.
+          These are eligible low/medium priority tasks in your department. Easy tasks are intended for quick self-assignment; Moderate tasks may also be claimed when capacity allows. Accept one to make it yours — first come, first served.
         </p>
       </div>
 
@@ -115,6 +120,9 @@ export default function WorkerOpenTasksPage() {
           <div className="p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
               <p className="font-semibold leading-snug line-clamp-2">{task.description}</p>
+              <Badge variant="outline" className="shrink-0 bg-slate-50 text-slate-700 border-slate-200">
+                Difficulty: {task.difficulty || 'Moderate'}
+              </Badge>
               <Badge variant="outline" className={`shrink-0 ${
                 task.priority === 'Medium'
                   ? 'bg-amber-50 text-amber-700 border-amber-200'

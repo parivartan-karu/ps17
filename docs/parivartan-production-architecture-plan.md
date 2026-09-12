@@ -1970,7 +1970,7 @@ Department Head notified
 Citizen notified
 ```
 
-Then show the escalation event in the SMC dashboard.
+Then show the escalation event in the PMC dashboard.
 
 This demonstrates that the system is not merely an AI chatbot - it is an **AI-assisted municipal operations workflow**.
 

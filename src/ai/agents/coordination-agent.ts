@@ -45,7 +45,8 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
         departmentId: 'dept_water',
         departmentName: 'Water Supply Department',
         taskName: 'Isolate main valve & repair pipe leak',
-        status: 'In Progress',
+        status: 'Pending',
+        difficulty: 'Moderate',
         notes: 'Primary task: Shut off water valve to stop active flooding.',
       });
 
@@ -55,6 +56,7 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
         departmentName: 'Road Maintenance Department',
         taskName: 'Resurface damaged road pavement',
         status: 'Blocked',
+        difficulty: 'Hard',
         dependencyTaskId: task1Id,
         notes: 'Blocked until water pipe isolation task is completed.',
       });
@@ -66,6 +68,7 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
           departmentName: 'Solid Waste Management Department',
           taskName: 'Clear clogged stormwater drains',
           status: 'Pending',
+          difficulty: 'Moderate',
           notes: 'Clear mud and debris from drainage outlets.',
         });
       }
@@ -83,7 +86,8 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
         departmentId: 'dept_electrical',
         departmentName: 'Electrical & Streetlight Department',
         taskName: 'Inspect and secure underground cables',
-        status: 'In Progress',
+        status: 'Pending',
+        difficulty: 'Hard',
         notes: 'Verify no active electrical hazard before road repair.',
       });
 
@@ -93,6 +97,7 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
         departmentName: 'Road Maintenance Department',
         taskName: 'Fill pothole and apply asphalt patch',
         status: 'Blocked',
+        difficulty: 'Easy',
         dependencyTaskId: task1Id,
         notes: 'Blocked until electrical cable inspection is cleared.',
       });
@@ -106,7 +111,8 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
         departmentId: input.primaryDepartmentId,
         departmentName: input.primaryDepartmentName,
         taskName: `Resolve ${input.category} incident`,
-        status: 'In Progress',
+        status: 'Pending',
+        difficulty: input.category.toLowerCase().includes('streetlight') || input.category.toLowerCase().includes('pothole') ? 'Easy' : 'Moderate',
       });
     }
   } catch (err: any) {
@@ -118,7 +124,7 @@ export async function coordinationAgent(input: CoordinationInput): Promise<Coord
       departmentId: input.primaryDepartmentId,
       departmentName: input.primaryDepartmentName,
       taskName: `Resolve ${input.category} incident`,
-      status: 'In Progress',
+      status: 'Pending',
     });
     reasoning = 'Fallback coordination applied.';
   }

@@ -1,4 +1,5 @@
 import type { ActionLogEntry, Report, ReportStatus, User } from '@/lib/types';
+import { normalizeDepartmentId } from './departments';
 import type { User as FirebaseUser } from 'firebase/auth';
 
 export const workerActiveStatuses: ReportStatus[] = ['Assigned', 'In Progress'];
@@ -22,10 +23,16 @@ export function isAssignedToWorker(report: Report, workerId: string, workerName:
   return report.assignedWorkerId === workerId || (!!workerName && report.assignedContractor === workerName);
 }
 
-export function isOpenLowPriorityTask(report: Report) {
+export function isOpenLowPriorityTask(report: Report, workerDepartmentId?: string) {
   const priority = report.priority || 'Medium';
+  const difficulty = report.difficulty || 'Moderate';
+  const reportDept = normalizeDepartmentId(report.departmentId || report.department);
+  const workerDept = normalizeDepartmentId(workerDepartmentId);
+  const deptMatches = !workerDept || !reportDept || workerDept === reportDept;
   return (
+    deptMatches &&
     (priority === 'Low' || priority === 'Medium') &&
+    (difficulty === 'Easy' || difficulty === 'Moderate') &&
     !report.assignedWorkerId &&
     !report.assignedContractor &&
     (report.status === 'Submitted' || report.status === 'Assigned')

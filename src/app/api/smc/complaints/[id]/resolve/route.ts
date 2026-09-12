@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/firebase/server';
 import { requireRequestIdentity, requireDepartmentAccess, RequestAuthError } from '@/lib/server-auth';
 import type { Report, ReportStatus } from '@/lib/types';
-import { validateStatusTransition } from '@/lib/state-machine';
+import { applyReportStatusTransition } from '@/lib/status-transition-service';
 import { isGenuineResolvedReport, getRewardOffer, buildRewardNotificationText } from '@/lib/reward-utils';
 import { FieldValue } from 'firebase-admin/firestore';
+import { evidenceVerificationAgent } from '@/ai/agents/evidence-verification-agent';
+import { emitWorkflowEvent } from '@/lib/workflow-events';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +35,7 @@ const STATUS_PUSH_MESSAGES: Record<string, { title: string; body: string }> = {
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const identity = await requireRequestIdentity(request, ['official', 'department_head']);
+    const identity = await requireRequestIdentity(request, ['official', 'admin']);
 
     const params = await context.params;
     const reportId = params.id?.trim();
@@ -68,32 +70,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       requireDepartmentAccess(currentReport, identity);
       
       // Authoritative State Machine Validation (Phase 5)
-      const transitionResult = validateStatusTransition(currentReport.status, newStatus);
-      if (!transitionResult.valid) {
-        throw new Error(transitionResult.reason || 'Invalid status transition.');
+      if (newStatus === 'Resolved') {
+        if (currentReport.status !== 'Under Verification') throw new Error('Complaint must be submitted for verification before it can be resolved.');
+        if (!currentReport.afterWorkMediaUrl && !currentReport.afterImageUrl) throw new Error('After-work evidence is required before resolution.');
+        const evidence = await evidenceVerificationAgent({ complaintId: reportId, category: currentReport.category, beforeMediaUrl: currentReport.beforeWorkMediaUrl || currentReport.imageUrl, afterMediaUrl: currentReport.afterWorkMediaUrl || currentReport.afterImageUrl, officerNotes: currentReport.afterWorkNotes });
+        if (!evidence.passed) throw new Error(`Evidence verification failed (${evidence.score}/100): ${evidence.reasons.join(' ')}`);
+        (updatePayload as any).evidenceVerification = { passed: evidence.passed, score: evidence.score, reasons: evidence.reasons, verifiedAt: new Date().toISOString() };
+        (updatePayload as any).agentLogs = FieldValue.arrayUnion(evidence.receipt);
       }
 
       const isBeingResolved = newStatus === 'Resolved' && currentReport.status !== 'Resolved';
 
-      const statusUpdatePayload: Record<string, unknown> = {
-        status: newStatus,
-        ...updatePayload,
-      };
-
-      const newLogEntry = {
-        status: newStatus,
-        timestamp: new Date().toISOString(),
-        actor: 'Official' as const,
-        actorName: identity.profile?.name || 'SMC Officer',
-        notes: remarks || `Status updated to ${newStatus}.`,
-      };
-
-      if (!Array.isArray(statusUpdatePayload.actionLog)) {
-        statusUpdatePayload.actionLog = [];
-      }
-      (statusUpdatePayload.actionLog as typeof newLogEntry[]).push(newLogEntry);
-
-      transaction.update(reportRef, statusUpdatePayload);
+      applyReportStatusTransition(
+        transaction,
+        reportRef,
+        currentReport,
+        newStatus,
+        { uid: identity.uid, role: identity.profile?.role || 'Official', name: identity.profile?.name || 'PMC Officer' },
+        {
+          notes: remarks || `Status updated to ${newStatus}.`,
+          extraUpdates: updatePayload,
+        },
+      );
 
       if (isBeingResolved) {
         const userRef = firestore.collection('users').doc(currentReport.userId);
@@ -110,7 +108,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           status: 'Resolved' as const,
           timestamp: timestampIso,
           actor: 'Official' as const,
-          actorName: identity.profile?.name || 'SMC Officer',
+          actorName: identity.profile?.name || 'PMC Officer',
           notes: `Master incident #${reportId.slice(0, 8)} resolved by department.`,
         };
 
@@ -135,6 +133,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         previousStatus: currentReport.status,
       };
     });
+
+    try { await emitWorkflowEvent(result.isBeingResolved ? 'COMPLAINT_RESOLVED' : 'STATUS_CHANGED', reportId, { from: result.previousStatus, to: newStatus, remarks }, identity.uid, 'Department_Head', undefined); } catch (eventError) { console.warn('[smc resolve] Event logging failed:', eventError); }
 
     // ── Fire push notification (fire-and-forget) ───────────────────────────
     ; (async () => {

@@ -11,7 +11,7 @@ function normalizeSegment(value: string) {
 
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    await requireRequestIdentity(request, ['official', 'department_head']);
+    await requireRequestIdentity(request, ['official', 'admin']);
 
     const params = await context.params;
     const rawId = normalizeSegment(decodeURIComponent(params.id || ''));

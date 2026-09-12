@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getWorkerReport, handleApiError, handleNotFound, serializableReport, timestampNow, workerLog } from '@/app/api/worker/_utils';
 import { workerUploadSchema } from '@/lib/worker-api';
+import { emitWorkflowEvent } from '@/lib/workflow-events';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       ),
     });
 
+    try { await emitWorkflowEvent('STATUS_CHANGED', id, { from: report.status, to: 'In Progress', workerId: worker.uid }, worker.uid, 'Worker', report.departmentId); } catch (eventError) { console.warn('[worker before] Event logging failed:', eventError); }
     const updated = await reportRef.get();
     return NextResponse.json({ task: serializableReport({ ...(updated.data() as typeof report), id: updated.id }) });
   } catch (error) {

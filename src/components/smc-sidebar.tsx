@@ -114,8 +114,8 @@ export default function SmcSidebar() {
               )}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[13px] font-bold tracking-tight truncate">{displayDeptName}</span>
-              <span className="text-xs text-muted-foreground truncate">{displaySubtitle}</span>
+              <span className="text-[13px] font-bold tracking-tight truncate">PMC Central</span>
+              <span className="text-xs text-muted-foreground truncate">Central Administration</span>
             </div>
           </div>
           

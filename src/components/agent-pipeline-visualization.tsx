@@ -9,7 +9,7 @@ import type { Report } from '@/lib/types';
 
 interface AgentPipelineVisualizationProps {
   report: Report;
-  /** Set to true in SMC or Dept views for elevated administrative details */
+  /** Set to true in PMC or Dept views for elevated administrative details */
   isAdminView?: boolean;
 }
 

@@ -85,7 +85,7 @@ async function generateWorkerId(firestore: Firestore) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRequestIdentity(request, ['official', 'department_head']);
+    await requireRequestIdentity(request, ['official', 'admin']);
 
     const body = await request.json();
 
@@ -176,10 +176,14 @@ export async function POST(request: NextRequest) {
     let smsStatus: 'sent' | 'failed' = 'sent';
 
     try {
-      await sendSMS({
+      const smsResult = await sendSMS({
         phoneNumber: normalizedPhoneNumber,
-        message: `Congrats! Your worker account is ready. ID: ${workerId} Pass: ${password}`,
+        message: `PMC worker account: ID ${workerId}. Password ${password}. Login via the Worker Portal.`,
       });
+      if (!smsResult.success) {
+        smsStatus = 'failed';
+        console.warn('Worker onboarding SMS failed:', smsResult.error);
+      }
     } catch (error) {
       console.error('Worker onboarding SMS failed:', error);
       smsStatus = 'failed';

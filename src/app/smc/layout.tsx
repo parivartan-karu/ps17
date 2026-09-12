@@ -17,7 +17,7 @@ export default function SmcLayout({
     return (
       <AuthGuard
         loginPath="/smc/login"
-        allowedRoles={['admin', 'official', 'department_head']}
+        allowedRoles={['admin', 'official']}
         publicPaths={['/smc/login']}
       >
         <>{children}</>
@@ -28,7 +28,7 @@ export default function SmcLayout({
   return (
     <AuthGuard
       loginPath="/smc/login"
-      allowedRoles={['admin', 'official', 'department_head']}
+      allowedRoles={['admin', 'official']}
       publicPaths={['/smc/login']}
     >
       <div className="flex min-h-screen w-full bg-muted/30">

@@ -3,7 +3,7 @@
  * Unified evolving case context object maintained across multi-agent triage and workflow transitions.
  */
 
-import type { Report, AIAnalysis, ActionLogEntry } from './types';
+import type { Report, AIAnalysis, ActionLogEntry, TaskDifficulty } from './types';
 import type { PriorityLevel } from './sla';
 
 export type DepartmentTaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
@@ -16,6 +16,8 @@ export type DepartmentTask = {
   assignedWorkerId?: string;
   assignedWorkerName?: string;
   status: DepartmentTaskStatus;
+  difficulty?: TaskDifficulty;
+  priority?: Report['priority'];
   slaDeadline?: string;
   dependencyTaskId?: string; // ID of task that must complete first
   completedAt?: string;
@@ -119,7 +121,7 @@ export function buildComplaintContext(report: Report): ComplaintContext {
     priority: {
       level: prio,
       riskScore,
-      reasons: [
+      reasons: report.riskScoreReasons?.length ? report.riskScoreReasons : [
         `Assigned ${prio} priority based on issue risk score (${riskScore}/100).`,
         report.slaBreached ? 'SLA deadline exceeded' : 'Standard SLA deadline active',
       ],

@@ -5,6 +5,7 @@ import { normalizeDepartment, normalizeDepartmentId } from '@/lib/departments';
 import { validatePriority } from '@/ai/agents/types';
 import type { Report, ReportStatus, User } from '@/lib/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import { applyReportStatusTransition } from '@/lib/status-transition-service';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -20,7 +21,7 @@ export type OverrideActionType =
 export async function POST(request: NextRequest) {
   try {
     // 1. Authenticate caller (Must be official, admin, or department_head)
-    const identity = await requireRequestIdentity(request, ['official', 'admin', 'department_head']);
+    const identity = await requireRequestIdentity(request, ['official', 'admin']);
 
     const body = await request.json();
     const {
@@ -165,7 +166,12 @@ export async function POST(request: NextRequest) {
         if (!targetStatus) {
           throw new Error('targetStatus is required.');
         }
-        updatePayload.status = targetStatus;
+        // The central override still uses the same transition gate. Administrative
+        // override changes operational data, not the lifecycle rules themselves.
+        applyReportStatusTransition(transaction, reportRef, report, targetStatus, {
+          uid: identity.uid, role: identity.profile?.role || 'Official', name: identity.profile?.name || 'PMC Officer',
+        }, { notes: `Central administrative status override to ${targetStatus}.` });
+        delete updatePayload.status;
         auditNote += ` | Status overridden to ${targetStatus}.`;
       }
 
@@ -174,7 +180,7 @@ export async function POST(request: NextRequest) {
         const nextLevel = (report.escalationLevel ?? 0) + 1;
         const escalatedToTitle = nextLevel === 1
           ? `${report.department || 'Department'} Head`
-          : 'Municipal Commissioner / SMC Central Administration';
+          : 'Municipal Commissioner / PMC Central Administration';
 
         updatePayload.slaBreached = true;
         updatePayload.escalationLevel = nextLevel;

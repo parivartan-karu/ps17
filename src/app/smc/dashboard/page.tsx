@@ -1,170 +1,102 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import {
-  Layers, Flame, Clock,
-  CheckCircle2, Compass, Landmark
-} from 'lucide-react';
-
+import { collection, orderBy, query, where, DocumentData, Query } from 'firebase/firestore';
 import { useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, DocumentData, Query } from 'firebase/firestore';
-import type { Report } from '@/lib/types';
 import { useFirestore } from '@/firebase/provider';
+import type { Report, User as UserType } from '@/lib/types';
+import { AlertTriangle, BellRing, Bot, CheckCircle2, ChevronRight, Clock3, Flame, MapPin, ShieldAlert, Users, Wrench } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-// Dynamically import HeatMap to avoid SSR issues with Leaflet
-const HeatMap = dynamic(() => import('@/components/heat-map'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full bg-slate-100 dark:bg-slate-900 animate-pulse rounded-2xl flex flex-col items-center justify-center gap-3">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-      <p className="text-sm text-slate-500 font-medium">Loading Pune City Geo-Layer & Ward Boundaries…</p>
-    </div>
-  ),
-});
+const HeatMap = dynamic(() => import('@/components/heat-map'), { ssr: false });
+const ACTIVE = ['Submitted', 'Under Verification', 'Assigned', 'In Progress'];
 
-// Non-completed statuses only
-const ACTIVE_STATUSES = ['Submitted', 'Under Verification', 'Assigned', 'In Progress'];
+function timeLeft(deadline?: string) {
+  if (!deadline) return 'No SLA';
+  const diff = new Date(deadline).getTime() - Date.now();
+  if (diff <= 0) return 'BREACHED';
+  const h = Math.floor(diff / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
 
 export default function SmcDashboard() {
   const firestore = useFirestore();
-  const [focusedLocation, setFocusedLocation] = useState<{ lat: number; lng: number; reportId?: string } | null>(null);
+  const [queue, setQueue] = useState<'risk' | 'escalated' | 'unassigned' | 'clusters'>('risk');
 
-  const allReportsQuery = useMemoFirebase(() => {
+  const reportsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'reports'), orderBy('timestamp', 'desc'));
   }, [firestore]) as Query<DocumentData> | null;
+  const workersQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), where('role', '==', 'worker'));
+  }, [firestore]) as Query<DocumentData> | null;
 
-  const { data: rawReports, isLoading } = useCollection<Report>(allReportsQuery);
+  const { data: rawReports = [], isLoading } = useCollection<Report>(reportsQuery);
+  const { data: workers = [] } = useCollection<UserType>(workersQuery);
+  const reports = (rawReports ?? []).filter(r => r.category && r.category.toLowerCase() !== 'none');
+  const active = reports.filter(r => ACTIVE.includes(r.status));
 
-  // Active (non-completed) reports
-  const activeReports = useMemo(
-    () => (rawReports ?? []).filter(r => ACTIVE_STATUSES.includes(r.status) && r.category && r.category.toLowerCase() !== 'none'),
-    [rawReports],
-  );
+  const metrics = useMemo(() => ({
+    critical: active.filter(r => r.priority === 'Critical').length,
+    slaRisk: active.filter(r => r.slaBreached || (r.slaDeadline && new Date(r.slaDeadline).getTime() - Date.now() < 4 * 3600000)).length,
+    escalated: active.filter(r => (r.escalationLevel ?? 0) > 0 || !!r.escalatedTo).length,
+    unassigned: active.filter(r => !r.assignedWorkerId).length,
+  }), [active]);
 
-  // Operational metrics
-  const metrics = useMemo(() => {
-    const total = activeReports.length;
-    const criticalOrHigh = activeReports.filter(r => r.priority === 'Critical' || r.priority === 'High').length;
-    const pendingVerification = activeReports.filter(r => r.status === 'Submitted' || r.status === 'Under Verification').length;
-    const inProgressOrAssigned = activeReports.filter(r => r.status === 'Assigned' || r.status === 'In Progress').length;
-    return { total, criticalOrHigh, pendingVerification, inProgressOrAssigned };
-  }, [activeReports]);
+  const queues = useMemo(() => {
+    const risk = active.filter(r => r.priority === 'Critical' || r.slaBreached || (r.slaDeadline && new Date(r.slaDeadline).getTime() - Date.now() < 4 * 3600000)).sort((a,b) => (b.riskScore ?? 0) - (a.riskScore ?? 0));
+    const escalated = active.filter(r => (r.escalationLevel ?? 0) > 0 || !!r.escalatedTo).sort((a,b) => (b.escalationLevel ?? 0) - (a.escalationLevel ?? 0));
+    const unassigned = active.filter(r => !r.assignedWorkerId).sort((a,b) => (b.riskScore ?? 0) - (a.riskScore ?? 0));
+    const clusters = Object.entries(active.reduce<Record<string, Report[]>>((acc, r) => {
+      const key = r.linkedIncidentId || (r.relatedReportCount && r.relatedReportCount > 1 ? `cluster:${r.location?.split(',')[0] || r.id}` : '');
+      if (key) (acc[key] ||= []).push(r);
+      return acc;
+    }, {})).filter(([, rs]) => rs.length > 1).sort((a,b) => b[1].length-a[1].length).slice(0,8);
+    return { risk, escalated, unassigned, clusters };
+  }, [active]);
 
-  // Map Data — all active reports with GPS coordinates
-  const heatMapData = useMemo(() =>
-    activeReports
-      .filter(r => r.latitude && r.longitude)
-      .map(r => ({
-        lat: r.latitude!,
-        lng: r.longitude!,
-        location: r.location || 'Pune City',
-        status: r.status,
-        type: r.category,
-        category: r.category,
-        department: r.department,
-        reportId: r.id,
-        imageUrl: r.imageUrl,
-        description: r.description,
-        priority: r.priority,
-        date: new Date(r.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
-        count: 1,
-      })),
-    [activeReports],
-  );
+  const departmentWorkload = useMemo(() => Object.entries(active.reduce<Record<string, number>>((a,r) => { const d=r.department || 'Unassigned'; a[d]=(a[d]||0)+1; return a; }, {})).sort((a,b)=>b[1]-a[1]).slice(0,8), [active]);
+  const workerWorkload = useMemo(() => [...(workers ?? [])].sort((a,b)=>(b.activeTasks??0)-(a.activeTasks??0)).slice(0,8), [workers]);
+  const agentActivity = useMemo(() => reports.flatMap(r => (r.agentLogs || []).map(log => ({...log, reportId:r.id, category:r.category}))).sort((a,b)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime()).slice(0,10), [reports]);
+  const mapData = active.filter(r => r.latitude && r.longitude).map(r => ({ lat:r.latitude!, lng:r.longitude!, location:r.location, status:r.status, type:r.category, category:r.category, department:r.department, reportId:r.id, imageUrl:r.imageUrl, description:r.description, priority:r.priority, date:new Date(r.timestamp).toLocaleDateString('en-IN'), count:1 }));
 
-  const handleResetMapCenter = () => {
-    setFocusedLocation({ lat: 18.5204, lng: 73.8567 });
-  };
+  const selected = queue === 'risk' ? queues.risk : queue === 'escalated' ? queues.escalated : queue === 'unassigned' ? queues.unassigned : [];
 
-  return (
-    <div className="h-[calc(100vh-2.5rem)] md:h-[calc(100vh-3rem)] lg:h-[calc(100vh-3.5rem)] max-h-[calc(100vh-2.5rem)] overflow-hidden flex flex-col gap-3 p-2">
-
-      {/* ── Top 4 KPI Cards ─────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0 w-full">
-
-        {/* Active Incidents */}
-        <div className="rounded-2xl border border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/70 dark:bg-indigo-950/50 px-3.5 py-2 shadow-sm flex flex-col justify-between min-w-[125px]">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-[10px] font-extrabold text-indigo-900 dark:text-indigo-200 uppercase tracking-wider">Active Cases</span>
-            <span className="p-1 rounded-lg bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300">
-              <Layers className="h-3.5 w-3.5" />
-            </span>
-          </div>
-          <p className="text-2xl font-black text-indigo-950 dark:text-white leading-none">{metrics.total}</p>
-        </div>
-
-        {/* Critical / High */}
-        <div className="rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50/70 dark:bg-red-950/50 px-3.5 py-2 shadow-sm flex flex-col justify-between min-w-[125px]">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-[10px] font-extrabold text-red-900 dark:text-red-200 uppercase tracking-wider">Critical / High</span>
-            <span className="p-1 rounded-lg bg-red-100 dark:bg-red-900/60 text-red-700 dark:text-red-300">
-              <Flame className="h-3.5 w-3.5" />
-            </span>
-          </div>
-          <p className="text-2xl font-black text-red-700 dark:text-red-400 leading-none">{metrics.criticalOrHigh}</p>
-        </div>
-
-        {/* Awaiting Triage */}
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/50 px-3.5 py-2 shadow-sm flex flex-col justify-between min-w-[125px]">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-[10px] font-extrabold text-amber-900 dark:text-amber-200 uppercase tracking-wider">Awaiting Triage</span>
-            <span className="p-1 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-700 dark:text-amber-300">
-              <Clock className="h-3.5 w-3.5" />
-            </span>
-          </div>
-          <p className="text-2xl font-black text-amber-800 dark:text-amber-300 leading-none">{metrics.pendingVerification}</p>
-        </div>
-
-        {/* Field Teams */}
-        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/70 dark:bg-emerald-950/50 px-3.5 py-2 shadow-sm flex flex-col justify-between min-w-[125px]">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-[10px] font-extrabold text-emerald-900 dark:text-emerald-200 uppercase tracking-wider">Field Teams</span>
-            <span className="p-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </span>
-          </div>
-          <p className="text-2xl font-black text-emerald-800 dark:text-emerald-400 leading-none">{metrics.inProgressOrAssigned}</p>
-        </div>
-      </div>
-
-      {/* ── Main: Full-width Map ─────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 overflow-hidden relative rounded-3xl border border-slate-200 shadow-xl bg-slate-100 dark:bg-slate-900 dark:border-slate-800">
-        {isLoading ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-3 bg-slate-100 dark:bg-slate-900 animate-pulse">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
-            <p className="text-sm text-slate-500 font-medium">Loading Pune City Geo-Layer & Ward Boundaries…</p>
-          </div>
-        ) : (
-          <div className="w-full h-full">
-            <HeatMap
-              data={heatMapData}
-              selectedCategories={[]}
-              selectedStatuses={[]}
-              focusLocation={focusedLocation}
-            />
-          </div>
-        )}
-
-        {/* Floating Incident Counter & Reset */}
-        {!isLoading && (
-          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-2">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 px-3.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-100 shadow-md">
-              <span className="h-2 w-2 rounded-full bg-blue-600 animate-ping" />
-              {activeReports.length} Active Incident{activeReports.length !== 1 ? 's' : ''} Mapped
-            </span>
-            <button
-              onClick={handleResetMapCenter}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 px-3 py-1 text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-slate-300 shadow-md transition-colors"
-              title="Reset map view to Pune City Center"
-            >
-              <Compass className="h-3.5 w-3.5 text-blue-600" />
-              Reset Center
-            </button>
-          </div>
-        )}
-      </div>
+  return <div className="space-y-4 pb-10">
+    <div className="flex items-center justify-between border-b pb-4">
+      <div><p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">PMC Central Administration</p><h1 className="text-2xl font-black tracking-tight">Command Center</h1><p className="text-sm text-muted-foreground">City-wide operational picture, exceptions and incident control.</p></div>
+      <Badge className="gap-2 px-3 py-1"><span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"/> LIVE</Badge>
     </div>
-  );
+
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {[
+        ['Critical', metrics.critical, 'border-red-200 bg-red-50', Flame],
+        ['SLA at Risk', metrics.slaRisk, 'border-amber-200 bg-amber-50', Clock3],
+        ['Escalated', metrics.escalated, 'border-orange-200 bg-orange-50', ShieldAlert],
+        ['Unassigned', metrics.unassigned, 'border-blue-200 bg-blue-50', Users],
+      ].map(([label,value,cls,Icon]) => <Card key={String(label)} className={String(cls)}><CardContent className="p-4"><div className="flex items-center justify-between"><span className="text-xs font-bold uppercase tracking-wider">{label}</span><Icon className="h-4 w-4"/></div><div className="mt-2 text-3xl font-black">{String(value)}</div></CardContent></Card>)}
+    </div>
+
+    <div className="grid lg:grid-cols-[1.15fr_.85fr] gap-4">
+      <Card className="overflow-hidden"><CardHeader className="pb-2"><div className="flex items-center justify-between"><CardTitle className="text-base">Operational Queues</CardTitle><div className="flex gap-1"><Button size="sm" variant={queue==='risk'?'default':'outline'} onClick={()=>setQueue('risk')}>SLA Risk</Button><Button size="sm" variant={queue==='escalated'?'default':'outline'} onClick={()=>setQueue('escalated')}>Escalations</Button><Button size="sm" variant={queue==='unassigned'?'default':'outline'} onClick={()=>setQueue('unassigned')}>Unassigned</Button><Button size="sm" variant={queue==='clusters'?'default':'outline'} onClick={()=>setQueue('clusters')}>Clusters</Button></div></div></CardHeader><CardContent className="p-0">
+        {queue==='clusters' ? queues.clusters.map(([id,rs]) => <Link href={`/smc/incident/${rs[0].id}`} key={id} className="flex items-center justify-between border-t px-4 py-3 hover:bg-muted/50"><div><p className="font-semibold">Incident cluster #{rs[0].id.slice(0,8)}</p><p className="text-xs text-muted-foreground">{rs.length} related reports · {rs[0].category} · {rs[0].location}</p></div><ChevronRight className="h-4 w-4"/></Link>) : selected.slice(0,10).map(r => <Link href={`/smc/incident/${r.id}`} key={r.id} className="flex items-center justify-between border-t px-4 py-3 hover:bg-muted/50"><div className="min-w-0"><div className="flex items-center gap-2"><span className="font-bold truncate">#{r.id.slice(0,8)} · {r.category}</span><Badge variant="outline">{r.priority}</Badge></div><p className="text-xs text-muted-foreground truncate">{r.department} · {r.location}</p></div><div className="text-right ml-3"><p className="text-xs font-bold">{r.slaBreached ? 'BREACHED' : timeLeft(r.slaDeadline)}</p><p className="text-[10px] text-muted-foreground">Risk {r.riskScore ?? '—'}</p></div></Link>)}
+        {!isLoading && ((queue==='clusters' ? queues.clusters.length : selected.length)===0) && <div className="p-8 text-center text-sm text-muted-foreground">No active exceptions in this queue.</div>}
+      </CardContent></Card>
+
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base">Department Workload</CardTitle></CardHeader><CardContent className="space-y-3">{departmentWorkload.map(([name,count]) => <div key={name}><div className="flex justify-between text-sm mb-1"><span>{name}</span><b>{count}</b></div><div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary" style={{width:`${Math.min(100,count/Math.max(1,active.length)*100)}%`}}/></div></div>)}{departmentWorkload.length===0&&<p className="text-sm text-muted-foreground">No active workload.</p>}</CardContent></Card>
+    </div>
+
+    <div className="grid lg:grid-cols-[1fr_1fr] gap-4">
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Wrench className="h-4 w-4"/> Worker Workload</CardTitle></CardHeader><CardContent className="space-y-2">{workerWorkload.map(w => <div key={w.id} className="flex justify-between items-center border-b last:border-0 py-2"><div><p className="font-medium">{w.name}</p><p className="text-xs text-muted-foreground">{w.department || 'Unassigned'}</p></div><Badge variant={(w.activeTasks??0)>=(w.maxTaskCapacity??5)?'destructive':'secondary'}>{w.activeTasks??0}/{w.maxTaskCapacity??5}</Badge></div>)}</CardContent></Card>
+      <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Bot className="h-4 w-4"/> Agent Activity</CardTitle></CardHeader><CardContent className="space-y-2">{agentActivity.map((a,i)=><div key={`${a.reportId}-${i}`} className="border-b last:border-0 py-2"><div className="flex justify-between gap-2"><span className="font-medium text-sm">{a.agent}</span><Badge variant="outline">{a.status}</Badge></div><p className="text-xs text-muted-foreground truncate">#{a.reportId.slice(0,8)} · {a.outputSummary || a.reasoning || 'Decision recorded'}</p></div>)}{agentActivity.length===0&&<p className="text-sm text-muted-foreground">Agent decisions will appear here.</p>}</CardContent></Card>
+    </div>
+
+    <Card className="overflow-hidden"><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><MapPin className="h-4 w-4"/> Live Incident Map</CardTitle></CardHeader><CardContent className="p-0 h-[420px]">{!isLoading&&<HeatMap data={mapData} selectedCategories={[]} selectedStatuses={[]} focusLocation={null}/>}</CardContent></Card>
+  </div>;
 }

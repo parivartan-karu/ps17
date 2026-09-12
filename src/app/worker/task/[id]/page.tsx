@@ -132,7 +132,7 @@ export default function WorkerTaskPage() {
   const firestore = useFirestore();
   const auth = useAuth();
   const { toast } = useToast();
-  const { workerId, workerName, isLoading: isWorkerLoading } = useWorkerProfile();
+  const { workerId, workerName, userProfile, isLoading: isWorkerLoading } = useWorkerProfile();
   const [activeAction, setActiveAction] = useState<string | null>(null);
 
   const reportRef = useMemoFirebase(() => {
@@ -147,7 +147,7 @@ export default function WorkerTaskPage() {
     return isAssignedToWorker(report, workerId, workerName);
   }, [report, workerId, workerName]);
 
-  const isSelfAssignable = report ? isOpenLowPriorityTask(report) : false;
+  const isSelfAssignable = report ? isOpenLowPriorityTask(report, userProfile?.departmentId || userProfile?.department) : false;
   const canOperate = isMine || isSelfAssignable;
   
   const instructions = useMemo(() => {
@@ -205,16 +205,14 @@ export default function WorkerTaskPage() {
         return;
       }
 
-      await updateDoc(reportRef, {
-        status: 'Resolved',
-        completedAt: new Date().toISOString(),
-        workflowStage: 'completed',
-        workerAssignmentStatus: 'Accepted',
-        actionLog: arrayUnion(buildWorkerLogEntry('Resolved', workerName, 'Task marked as completed by worker.')),
+      if (!auth) return;
+      const headers = await buildAuthHeaders(auth, { 'Content-Type': 'application/json' });
+      const res = await fetch(`/api/worker/tasks/${report.id}/status`, {
+        method: 'PATCH', headers, body: JSON.stringify({ status: 'In Progress', remarks: 'Work completed; after-work evidence submitted for department verification.' }),
       });
-
-      toast({ title: 'Task completed', description: 'The task has been moved to your history.' });
-      router.push('/worker/history');
+      if (!res.ok) { const data = await res.json(); throw new Error(data.error || 'Failed to submit completion'); }
+      toast({ title: 'Completion submitted', description: 'Department verification is now required before the complaint is resolved.' });
+      return;
     } catch (error) {
       console.error(error);
       toast({
@@ -268,6 +266,7 @@ export default function WorkerTaskPage() {
                 </div>
                 <div className="flex gap-2 self-start">
                   <Badge className={`${workerStatusColors[report.status]} text-white border-0 shadow-sm px-2.5 py-0.5 text-xs font-semibold`}>{report.status}</Badge>
+                  <Badge variant="outline" className="shrink-0 bg-slate-50 text-slate-700 border-slate-200">Difficulty: {report.difficulty || 'Moderate'}</Badge>
                   <Badge variant="outline" className={`shrink-0 ${
                     report.priority === 'Medium'
                       ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -393,9 +392,9 @@ export default function WorkerTaskPage() {
                       After Upload Page
                     </Link>
                   </Button>
-                  <Button className="w-full" onClick={() => runTaskAction('complete')} disabled={activeAction === 'complete'}>
+                  <Button className="w-full" onClick={() => runTaskAction('complete')} disabled={activeAction === 'complete' || report.status === 'Under Verification' || report.status === 'Resolved'}>
                     {activeAction === 'complete' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-                    Mark Task Completed
+                    {report.status === 'Under Verification' ? 'Awaiting Department Verification' : report.status === 'Resolved' ? 'Task Resolved' : 'Submit for Verification'}
                   </Button>
                   {report.status !== 'Resolved' ? (
                     <Button className="w-full" variant="destructive" onClick={() => runTaskAction('reject')} disabled={activeAction === 'reject'}>

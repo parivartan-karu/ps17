@@ -47,7 +47,7 @@ export function DeptSidebar() {
       <div className="fixed top-0 left-0 right-0 z-40 flex h-14 items-center justify-between bg-indigo-700 px-4 text-white md:hidden">
         <div className="flex items-center gap-2">
           <Building2 className="h-5 w-5" />
-          <span className="font-bold text-sm truncate max-w-[180px]">{isSystemAdmin ? 'Admin Portal' : `${dept} Dept`}</span>
+          <span className="font-bold text-sm truncate max-w-[180px]">{`${dept} Dept`}</span>
         </div>
         <div className="flex gap-2">
           {navItems.map((item) => (
@@ -69,7 +69,7 @@ export function DeptSidebar() {
             </div>
             <div>
               <p className="font-bold text-sm">{dept}</p>
-              <p className="text-xs text-indigo-300">Department Portal</p>
+              <p className="text-xs text-indigo-300">Department Head Portal</p>
             </div>
           </div>
           {profile?.name && (

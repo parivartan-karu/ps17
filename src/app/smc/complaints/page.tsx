@@ -220,13 +220,13 @@ export default function SmcComplaintsPage() {
         status: 'Assigned',
         assignedWorkerId: worker.id,
         assignedContractor: worker.name,
-        assignedBy: user.displayName || 'SMC Officer',
+        assignedBy: user.displayName || 'PMC Officer',
         workerAssignmentStatus: 'Pending',
         actionLog: arrayUnion({
           status: 'Assigned',
           timestamp: new Date().toISOString(),
           actor: 'Official',
-          actorName: user.displayName || 'SMC Officer',
+          actorName: user.displayName || 'PMC Officer',
           notes: `Assigned to ${worker.name}.`,
         }),
       });

@@ -34,12 +34,12 @@ export default function DeptLoginPage() {
       const userDoc = await getDoc(doc(firestore, 'users', cred.user.uid));
       const role = userDoc.data()?.role;
 
-      if (role !== 'department_head' && role !== 'official' && role !== 'admin') {
+      if (role !== 'department_head') {
         await signOut(auth);
         throw new Error('This account is not authorized for department access.');
       }
 
-      toast({ title: 'Welcome!', description: 'Logged in to Department Portal.' });
+      toast({ title: 'Welcome!', description: `Logged in to ${userDoc.data()?.department || 'Department'} Portal.` });
       router.push('/dept/dashboard');
     } catch (err: any) {
       toast({ title: 'Login failed', description: err.message || 'Invalid credentials.', variant: 'destructive' });
@@ -62,9 +62,9 @@ export default function DeptLoginPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg mb-4">
                 <Building2 className="h-8 w-8 text-white" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Portal</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Department Portal</h1>
               <p className="mt-1 text-sm text-gray-500 text-center">
-                Sign in as a system administrator or head official
+                Sign in as a department head to manage only your assigned department
               </p>
             </div>
 

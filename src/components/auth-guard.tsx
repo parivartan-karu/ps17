@@ -7,19 +7,13 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { doc } from 'firebase/firestore';
+import { getPortalHome } from '@/lib/portal-access';
 
 interface AuthGuardProps {
   children: React.ReactNode;
   loginPath: string;
   allowedRoles?: UserProfile['role'][];
   publicPaths?: string[];
-}
-
-function getDefaultPathForRole(role: UserProfile['role']) {
-  if (role === 'worker') return '/worker/dashboard';
-  if (role === 'department_head') return '/dept/dashboard';
-  if (role === 'admin' || role === 'official') return '/smc/dashboard';
-  return '/citizen/dashboard';
 }
 
 export default function AuthGuard({
@@ -62,7 +56,7 @@ export default function AuthGuard({
       }
 
       if (!isRoleAllowed) {
-        router.replace(getDefaultPathForRole(role));
+        router.replace(getPortalHome(role));
       }
     }
   }, [isChecking, isPublicPath, user, shouldCheckRole, role, isRoleAllowed, router, loginPath]);

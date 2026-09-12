@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
       console.warn('SMS sending warning:', result.error);
       return NextResponse.json(
         {
-          success: true,
-          warning: 'Account created but SMS could not be sent',
+          success: false,
+          warning: 'SMS could not be sent',
         },
-        { status: 200 }
+        { status: 502 }
       );
     }
 
@@ -51,11 +51,8 @@ export async function POST(request: NextRequest) {
 
     console.error('Error sending SMS:', error);
     return NextResponse.json(
-      {
-        success: true,
-        warning: 'Account created but SMS could not be sent',
-      },
-      { status: 200 }
+      { success: false, warning: 'SMS could not be sent' },
+      { status: 502 }
     );
   }
 }

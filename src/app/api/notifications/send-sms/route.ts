@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
-    await requireRequestIdentity(request, ['official', 'department_head']);
+    await requireRequestIdentity(request, ['official', 'admin']);
 
     const { title, description, location, phoneNumbers } = await request.json();
 

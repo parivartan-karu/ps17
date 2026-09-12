@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/firebase/server';
 import { requireRequestIdentity, requireDepartmentAccess, RequestAuthError } from '@/lib/server-auth';
 import { normalizeDepartmentId } from '@/lib/departments';
-import { validateStatusTransition } from '@/lib/state-machine';
+import { applyReportStatusTransition } from '@/lib/status-transition-service';
 import type { AssignmentHistory } from '@/lib/types';
 import { FieldValue } from 'firebase-admin/firestore';
 
@@ -35,10 +35,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       requireDepartmentAccess(reportData, identity);
 
       // Authoritative State Machine Validation (Phase 5)
-      const transitionResult = validateStatusTransition(reportData.status, 'Assigned');
-      if (!transitionResult.valid) {
-        throw new Error(transitionResult.reason || 'Invalid status transition.');
-      }
 
       const workerData = workerDoc.data()!;
       if (workerData.role !== 'worker') {
@@ -97,16 +93,17 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         timestamp: timestampIso,
       };
 
-      tx.update(reportRef, {
-        status: 'Assigned',
+      applyReportStatusTransition(tx, reportRef, reportData as any, 'Assigned', { uid: identity.uid, role: identity.profile.role, name: identity.profile.name ?? 'Department Head' }, {
+        notes: `Assigned to ${actualWorkerName} by department.`,
+        extraUpdates: {
         queueStatus: 'assigned_worker',
         workflowStage: 'assigned_worker',
         assignedWorkerId: workerId,
         assignedContractor: actualWorkerName,
         assignedBy: identity.uid,
         assignmentMethod: 'admin_assign',
-        actionLog: FieldValue.arrayUnion(logEntry),
         assignmentHistory: FieldValue.arrayUnion(historyEntry),
+        },
       });
 
       // Increment activeTasks ONLY if assigning to a new worker (avoid double increment)

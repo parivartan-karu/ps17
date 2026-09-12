@@ -12,7 +12,7 @@ export default function DeptLayout({ children }: { children: React.ReactNode }) 
     return (
       <AuthGuard
         loginPath="/dept/login"
-        allowedRoles={['department_head', 'official', 'admin']}
+        allowedRoles={['department_head']}
         publicPaths={['/dept/login']}
       >
         <>{children}</>
@@ -23,7 +23,7 @@ export default function DeptLayout({ children }: { children: React.ReactNode }) 
   return (
     <AuthGuard
       loginPath="/dept/login"
-      allowedRoles={['department_head', 'official', 'admin']}
+      allowedRoles={['department_head']}
       publicPaths={['/dept/login']}
     >
       <div className="flex min-h-screen bg-gray-50">

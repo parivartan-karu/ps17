@@ -1,5 +1,3 @@
-'use server';
-
 import { createAgentReceipt, clampConfidence, type AgentLogEntry } from './types';
 import { sendBulkSMS } from '@/lib/twilio';
 import { getFirebaseAdmin } from '@/firebase/server';
@@ -154,6 +152,22 @@ Return ONLY valid JSON with keys:
   };
 }
 
+function notificationLink(input: CommunicationInput): string {
+  if (input.targetUserRole === 'citizen') return `/citizen/complaint/${input.reportId}`;
+  if (input.targetUserRole === 'worker') return `/worker/task/${input.reportId}`;
+  if (input.targetUserRole === 'department_head') return `/dept/complaint/${input.reportId}`;
+  return `/smc/complaint/${input.reportId}`;
+}
+
+async function resolveTargetPhone(firestore: any, input: CommunicationInput): Promise<string | undefined> {
+  if (input.targetPhone) return input.targetPhone;
+  if (input.targetUserId) {
+    const snap = await firestore.collection('users').doc(input.targetUserId).get();
+    return snap.exists ? snap.data()?.phoneNumber : undefined;
+  }
+  return undefined;
+}
+
 export type DispatchNotificationParams = {
   input: CommunicationInput;
   sendSms?: boolean;
@@ -250,16 +264,10 @@ export async function dispatchNotification(params: DispatchNotificationParams) {
               badge: '/icons/icon-96x96.png',
               tag: `sla-${input.type}-${input.reportId}`,
             },
-            fcmOptions: {
-              link: input.targetUserRole === 'citizen'
-                ? `/citizen/complaint/${input.reportId}`
-                : `/dept/complaint/${input.reportId}`,
-            },
+            fcmOptions: { link: notificationLink(input) },
           },
           data: {
-            url: input.targetUserRole === 'citizen'
-              ? `/citizen/complaint/${input.reportId}`
-              : `/dept/complaint/${input.reportId}`,
+            url: notificationLink(input),
             tag: `sla-${input.type}-${input.reportId}`,
           },
         }).catch(() => {});
@@ -270,74 +278,17 @@ export async function dispatchNotification(params: DispatchNotificationParams) {
   })();
 
   // 4. Send SMS if requested & phone number available
-  if (sendSms && input.targetPhone) {
-    const smsMessage = copy.smsMessage || `PMC Alert: ${copy.title} - ${copy.body}`;
-    await sendBulkSMS([input.targetPhone], smsMessage).catch((err) => {
-      console.warn('[dispatchNotification] SMS send error:', err?.message);
-    });
+  if (sendSms) {
+    const targetPhone = await resolveTargetPhone(firestore, input);
+    if (targetPhone) {
+      const smsMessage = copy.smsMessage || `PMC Alert: ${copy.title} - ${copy.body}`;
+      const smsResults = await sendBulkSMS([targetPhone], smsMessage);
+      const failed = smsResults.find((result) => !result.success);
+      if (failed) console.warn('[dispatchNotification] SMS delivery failed:', failed.error);
+    } else {
+      console.warn('[dispatchNotification] SMS requested but no recipient phone was found.');
+    }
   }
 
   return copy;
-}
-
-/**
- * Register EventBus subscribers to automatically dispatch role-tailored notifications upon workflow events.
- */
-export function registerEventBusListeners() {
-  const { eventBus } = require('@/lib/event-bus');
-
-  eventBus.subscribe('SLA_BREACHED', async (evt: any) => {
-    await dispatchNotification({
-      input: {
-        type: 'escalation',
-        reportId: evt.complaintId,
-        departmentId: evt.departmentId,
-        escalationLevel: evt.payload.escalationLevel || 1,
-        targetUserRole: evt.payload.escalationLevel === 2 ? 'admin' : 'department_head',
-        reportTitle: evt.payload.title,
-      },
-      sendSms: true,
-    });
-  });
-
-  eventBus.subscribe('WORKER_ASSIGNED', async (evt: any) => {
-    await dispatchNotification({
-      input: {
-        type: 'status_update',
-        reportId: evt.complaintId,
-        departmentId: evt.departmentId,
-        targetUserId: evt.payload.assignedWorkerId,
-        targetUserRole: 'worker',
-        reportTitle: evt.payload.title,
-        customDetails: `Assigned task: ${evt.payload.title}`,
-      },
-    });
-  });
-
-  eventBus.subscribe('REWORK_REQUESTED', async (evt: any) => {
-    await dispatchNotification({
-      input: {
-        type: 'status_update',
-        reportId: evt.complaintId,
-        departmentId: evt.departmentId,
-        targetUserId: evt.payload.assignedWorkerId,
-        targetUserRole: 'worker',
-        reportTitle: evt.payload.title,
-        customDetails: `Evidence rejected. Rework required: ${evt.payload.reworkInstructions || 'Upload valid photo'}`,
-      },
-    });
-  });
-
-  eventBus.subscribe('COMPLAINT_RESOLVED', async (evt: any) => {
-    await dispatchNotification({
-      input: {
-        type: 'status_update',
-        reportId: evt.complaintId,
-        targetUserId: evt.payload.userId,
-        targetUserRole: 'citizen',
-        reportTitle: evt.payload.title,
-        customDetails: 'Your complaint has been successfully resolved by PMC.',
-      },
-    });
-  });
 }

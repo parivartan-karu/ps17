@@ -5,7 +5,8 @@ import { getWorkerReport, handleApiError, handleNotFound, serializableReport, ti
 import { getFirebaseAdmin } from '@/firebase/server';
 import { workerStatusUpdateSchema } from '@/lib/worker-api';
 import type { ReportStatus } from '@/lib/types';
-import { validateStatusTransition } from '@/lib/state-machine';
+import { applyReportStatusTransition } from '@/lib/status-transition-service';
+import { emitWorkflowEvent } from '@/lib/workflow-events';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,12 +23,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     const currentStatus = report.status as ReportStatus;
 
     // Validate status transition using Centralized Authoritative State Machine (Phase 5 & 6)
-    const transition = validateStatusTransition(currentStatus, body.status);
-    if (!transition.valid) {
-      return NextResponse.json(
-        { error: transition.reason || `Invalid status transition from ${currentStatus} to ${body.status}.` },
-        { status: 400 }
-      );
+    if (body.status === 'Resolved') {
+      return NextResponse.json({ error: 'Workers cannot directly resolve complaints. Mark the task completed and submit after-work evidence for department verification.' }, { status: 400 });
     }
 
     const updatePayload: Record<string, unknown> = {
@@ -38,12 +35,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           ? 'assigned_worker'
           : body.status === 'In Progress'
             ? 'in_progress'
+            : body.status === 'Under Verification'
+              ? 'in_progress'
             : body.status === 'Resolved'
               ? 'completed'
               : 'pending_department',
-      actionLog: FieldValue.arrayUnion(
-        workerLog(body.status, worker.name, body.remarks || `Status updated to ${body.status}.`)
-      ),
     };
 
     // Requirement 11: Require after-work evidence before resolution
@@ -63,7 +59,32 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const { firestore } = await getFirebaseAdmin();
-    await reportRef.update(updatePayload);
+    if (body.status === 'Under Verification' && report.departmentTasks?.length) {
+      const tasks = report.departmentTasks.map((task) =>
+        task.assignedWorkerId === worker.uid || (!task.assignedWorkerId && task.departmentId === report.departmentId)
+          ? { ...task, assignedWorkerId: worker.uid, assignedWorkerName: worker.name, status: 'Completed' as const, completedAt: timestampNow() }
+          : task
+      );
+      const completedIds = new Set(tasks.filter((task) => task.status === 'Completed').map((task) => task.id));
+      const released = tasks.map((task) => task.status === 'Blocked' && task.dependencyTaskId && completedIds.has(task.dependencyTaskId)
+        ? { ...task, status: 'Pending' as const }
+        : task);
+      updatePayload.departmentTasks = released;
+    }
+    if (body.status === 'Under Verification') {
+      updatePayload.completedAt = timestampNow();
+      updatePayload.queueStatus = 'in_progress';
+    }
+    await firestore.runTransaction(async (tx: any) => {
+      const freshRef = firestore.collection('reports').doc(id);
+      const freshSnap = await tx.get(freshRef);
+      if (!freshSnap.exists) throw new Error('Report not found.');
+      const freshReport = { ...(freshSnap.data() as Report), id } as Report;
+      applyReportStatusTransition(tx, freshRef, freshReport, body.status, { uid: worker.uid, role: 'Worker', name: worker.name }, {
+        notes: body.remarks || `Worker updated status to ${body.status}.`,
+        extraUpdates: updatePayload,
+      });
+    });
 
     // Requirement 7: Keep worker activeTasks consistent and avoid double decrement
     const wasClosed = currentStatus === 'Resolved' || currentStatus === 'Rejected';
@@ -79,6 +100,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         }
       }).catch(() => {});
     }
+
+    try { await emitWorkflowEvent('STATUS_CHANGED', id, { from: currentStatus, to: body.status, workerId: worker.uid }, worker.uid, 'Worker', report.departmentId); } catch (eventError) { console.warn('[worker status] Event logging failed:', eventError); }
 
     const updated = await reportRef.get();
     return NextResponse.json({ task: serializableReport({ ...(updated.data() as typeof report), id: updated.id }) });

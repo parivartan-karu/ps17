@@ -15,8 +15,6 @@ interface PushPayload {
   url?: string;
   /** Notification type tag – prevents duplicate toasts */
   tag?: string;
-  /** Skip auth check – for internal server-to-server calls */
-  _internal?: boolean;
 }
 
 /**
@@ -25,20 +23,15 @@ interface PushPayload {
  * Requires official / department_head role (or internal flag).
  */
 export async function POST(request: NextRequest) {
-  let identity: Awaited<ReturnType<typeof requireRequestIdentity>> | null = null;
-
   const body = (await request.json()) as PushPayload;
 
-  // Internal server-to-server calls skip auth (used by resolve route)
-  if (!body._internal) {
-    try {
-      identity = await requireRequestIdentity(request, ['official', 'department_head', 'admin']);
-    } catch (error) {
-      if (error instanceof RequestAuthError) {
-        return NextResponse.json({ error: error.message }, { status: error.status });
-      }
-      throw error;
+  try {
+    await requireRequestIdentity(request, ['official', 'admin']);
+  } catch (error) {
+    if (error instanceof RequestAuthError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
     }
+    throw error;
   }
 
   const { targetUserId, title, body: messageBody, url, tag } = body;

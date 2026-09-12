@@ -3,8 +3,10 @@ import { requireRequestIdentity, RequestAuthError } from '@/lib/server-auth';
 import { getFirebaseAdmin } from '@/firebase/server';
 import { runTriagePipeline, type EligibleWorker } from '@/ai/orchestrator';
 import { calculateSlaDeadlines } from '@/lib/sla';
+import { getSlaConfig } from '@/lib/sla-config-server';
 import type { CandidateReport } from '@/ai/agents/dedup-agent';
 import type { Report, ActionLogEntry } from '@/lib/types';
+import { emitWorkflowEvent } from '@/lib/workflow-events';
 
 export async function POST(request: NextRequest) {
   try {
@@ -42,7 +44,7 @@ export async function POST(request: NextRequest) {
         const recentSnap = await firestore
           .collection('reports')
           .orderBy('timestamp', 'desc')
-          .limit(20)
+          .limit(100)
           .get();
 
         candidateReports = recentSnap.docs.map((docSnap) => {
@@ -103,11 +105,13 @@ export async function POST(request: NextRequest) {
       availableWorkers,
     });
 
-    // 5.5 Calculate SLA deadlines deterministically from server clock (Phase 5)
+    // 5.5 Calculate SLA deadlines from the same persisted configuration used by the SLA monitor.
+    const slaConfig = await getSlaConfig(firestore);
     const slaCalc = calculateSlaDeadlines({
       priority: triage.priority,
       departmentId: triage.departmentId,
       nowDate: new Date(),
+      config: slaConfig,
     });
 
     // 6. Build action log receipts
@@ -154,9 +158,16 @@ export async function POST(request: NextRequest) {
       departmentId: triage.departmentId,
       category: triage.category,
       priority: triage.priority,
+      difficulty: triage.difficulty,
+      riskScore: triage.riskScore,
+      riskScoreReasons: triage.riskScoreReasons,
+      departmentTasks: triage.departmentTasks,
+      relatedReportCount: 1,
       
       // SLA & Escalation fields (Phase 5)
       slaResponseDeadline: slaCalc.slaResponseDeadline,
+      responseSlaBreached: false,
+      responseSlaWarningSent: false,
       slaDeadline: slaCalc.slaDeadline,
       slaBreached: false,
       escalationLevel: 0,
@@ -197,6 +208,7 @@ export async function POST(request: NextRequest) {
 
     // 8. Atomic Write to Firestore
     const docRef = await firestore.collection('reports').add(newReportData);
+    try { await emitWorkflowEvent('COMPLAINT_CREATED', docRef.id, { category: triage.category, departmentId: triage.departmentId, priority: triage.priority, difficulty: triage.difficulty }, identity.uid, 'Citizen', triage.departmentId); } catch (eventError) { console.warn('[POST /api/reports] Event logging failed:', eventError); }
 
     return NextResponse.json({
       success: true,

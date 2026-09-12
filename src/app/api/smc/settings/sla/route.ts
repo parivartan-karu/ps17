@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRequestIdentity, RequestAuthError } from '@/lib/server-auth';
 import { getFirebaseAdmin } from '@/firebase/server';
-import { DEFAULT_SLA_CONFIG, type SlaConfig, type PriorityLevel } from '@/lib/sla';
+import { DEFAULT_SLA_CONFIG, type SlaConfig } from '@/lib/sla';
+import { SLA_CONFIG_DOC_ID, normalizeSlaConfig } from '@/lib/sla-config-server';
 import { validateDepartmentId } from '@/ai/agents/types';
 
 export const dynamic = 'force-dynamic';
@@ -12,14 +13,14 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
-    const identity = await requireRequestIdentity(request, ['department_head', 'official', 'admin']);
+    const identity = await requireRequestIdentity(request, ['official', 'admin']);
     const { firestore } = await getFirebaseAdmin();
 
-    const docSnap = await firestore.collection('settings').doc('slaConfig').get();
+    const docSnap = await firestore.collection('settings').doc(SLA_CONFIG_DOC_ID).get();
     let config: SlaConfig = DEFAULT_SLA_CONFIG;
 
     if (docSnap.exists) {
-      config = docSnap.data() as SlaConfig;
+      config = normalizeSlaConfig(docSnap.data());
     }
 
     // If caller is department_head, filter response to global defaults + their specific department overrides
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
       updatedBy: identity.uid,
     };
 
-    await firestore.collection('settings').doc('slaConfig').set(updatedConfig);
+    await firestore.collection('settings').doc(SLA_CONFIG_DOC_ID).set(normalizeSlaConfig(updatedConfig));
 
     return NextResponse.json({
       success: true,

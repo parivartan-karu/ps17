@@ -5,8 +5,9 @@ import { Eye, EyeOff, Loader2, ShieldCheck, Mail, Lock, LogIn, ArrowRight } from
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useFirestore, useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { Label } from '@/components/ui/label';
 export default function SmcLoginPage() {
   const auth = useAuth();
   const router = useRouter();
+  const firestore = useFirestore();
   const { user } = useUser();
   const { toast } = useToast();
 
@@ -29,8 +31,19 @@ export default function SmcLoginPage() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      toast({ title: 'Welcome, Officer.' });
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const profileSnap = await getDoc(doc(firestore, 'users', cred.user.uid));
+      const role = profileSnap.data()?.role;
+
+      if (role !== 'admin' && role !== 'official') {
+        await auth.signOut();
+        if (role === 'department_head') {
+          throw new Error('Department heads must use the Department Portal.');
+        }
+        throw new Error('This account is not authorized for the PMC Central Portal.');
+      }
+
+      toast({ title: 'Welcome to PMC Central.' });
       router.push('/smc/dashboard');
     } catch (err: any) {
       toast({ title: 'Login failed', description: err.code === 'auth/invalid-credential' ? 'Wrong email or password.' : err.message, variant: 'destructive' });
@@ -47,12 +60,12 @@ export default function SmcLoginPage() {
           </div>
           <div>
             <p className="text-3xl font-black">Parivartan</p>
-            <p className="text-purple-300 text-sm">Department Operations Panel</p>
+            <p className="text-purple-300 text-sm">PMC Central Operations Panel</p>
           </div>
         </div>
-        <h2 className="text-2xl font-bold mb-3">Pune Municipal Corporation<br />Department Officer Dashboard</h2>
+        <h2 className="text-2xl font-bold mb-3">Pune Municipal Corporation<br />Central Administration Dashboard</h2>
         <p className="text-purple-200 text-sm leading-relaxed mb-8">
-          Manage civic complaints across Pune, assign department field workers, send alerts, and track issue clearance.
+          Oversee civic complaints across Pune, coordinate departments, manage municipal operations, and track city-wide performance.
         </p>
         <div className="space-y-3">
           {[
@@ -116,7 +129,7 @@ export default function SmcLoginPage() {
 
           <div className="mt-6 flex justify-center gap-4 text-xs text-gray-400">
             <Link href="/citizen/login" className="hover:text-emerald-600 transition-colors flex items-center gap-1">Citizen Portal <ArrowRight className="h-3 w-3" /></Link>
-            <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">Admin Portal <ArrowRight className="h-3 w-3" /></Link>
+            <Link href="/dept/login" className="hover:text-indigo-600 transition-colors flex items-center gap-1">PMC Central Portal <ArrowRight className="h-3 w-3" /></Link>
           </div>
         </div>
       </div>

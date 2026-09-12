@@ -341,7 +341,7 @@ export default function SmcComplaintDetailPage() {
         status: 'Assigned',
         timestamp: new Date().toISOString(),
         actor: 'Official',
-        actorName: user?.displayName || 'SMC Officer',
+        actorName: user?.displayName || 'PMC Officer',
         notes: `Assigned task to contractor: ${worker.name}`,
       };
       updatePayload.actionLog = [...(report.actionLog || []), newLog];
@@ -380,7 +380,9 @@ export default function SmcComplaintDetailPage() {
   }
 
   if (isLoading) {
-    return (
+    const incidentCommandHref = report ? `/smc/incident/${report.id}` : '/smc/dashboard';
+
+  return (
       <div className="grid gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-8">
           <Skeleton className="h-[500px] w-full" />

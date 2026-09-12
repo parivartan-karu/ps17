@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFirebaseAdmin } from '@/firebase/server';
 import { requireRequestIdentity, requireDepartmentAccess, RequestAuthError } from '@/lib/server-auth';
-import { validateStatusTransition } from '@/lib/state-machine';
+import { applyReportStatusTransition } from '@/lib/status-transition-service';
 import type { Report } from '@/lib/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import { evidenceVerificationAgent } from '@/ai/agents/evidence-verification-agent';
+import { emitWorkflowEvent } from '@/lib/workflow-events';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -53,27 +55,30 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       const timestampIso = new Date().toISOString();
 
       if (action === 'approve') {
-        // Require after-work evidence photo (Requirement 3)
-        if (!reportData.afterWorkMediaUrl && !reportData.imageUrl) {
+        if (reportData.status !== 'Under Verification') throw new Error('Complaint must be submitted for verification before approval.');
+        // Require actual after-work evidence. The citizen image is not completion proof.
+        if (!reportData.afterWorkMediaUrl && !reportData.afterImageUrl) {
           throw new Error('Verification failed: After-work photo evidence is required before approving resolution.');
         }
 
-        const transition = validateStatusTransition(reportData.status, 'Resolved');
-        if (!transition.valid) throw new Error(transition.reason);
+        const evidence = await evidenceVerificationAgent({
+          complaintId: reportId, category: reportData.category,
+          beforeMediaUrl: reportData.beforeWorkMediaUrl || reportData.imageUrl,
+          afterMediaUrl: reportData.afterWorkMediaUrl || reportData.afterImageUrl,
+          officerNotes: reportData.afterWorkNotes,
+        });
+        if (!evidence.passed) throw new Error(`Evidence verification failed (${evidence.score}/100): ${evidence.reasons.join(' ')}`);
 
         updatedStatus = 'Resolved';
 
-        tx.update(reportRef, {
-          status: 'Resolved',
-          workflowStage: 'completed',
-          queueStatus: 'completed',
-          actionLog: FieldValue.arrayUnion({
-            status: 'Resolved',
-            timestamp: timestampIso,
-            actor: 'Official',
-            actorName: identity.profile?.name || 'Department Officer',
-            notes: notes || 'Resolution verified and approved by department officer.',
-          }),
+        applyReportStatusTransition(tx, reportRef, reportData, 'Resolved', { uid: identity.uid, role: identity.profile?.role || 'Department_Head', name: identity.profile?.name || 'Department Officer' }, {
+          notes: notes || 'Resolution verified and approved by department officer.',
+          extraUpdates: {
+            workflowStage: 'completed',
+            evidenceVerification: { passed: evidence.passed, score: evidence.score, reasons: evidence.reasons, verifiedAt: timestampIso },
+            agentLogs: FieldValue.arrayUnion(evidence.receipt),
+            queueStatus: 'completed',
+          },
         });
 
         // Reward citizen (+10 points)
@@ -114,43 +119,23 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
           throw new Error('Verification notes/instructions are required when requesting rework.');
         }
 
-        const transition = validateStatusTransition(reportData.status, 'In Progress');
-        if (!transition.valid) throw new Error(transition.reason);
-
         updatedStatus = 'In Progress';
 
-        tx.update(reportRef, {
-          status: 'In Progress',
-          workflowStage: 'in_progress',
-          queueStatus: 'in_progress',
-          actionLog: FieldValue.arrayUnion({
-            status: 'In Progress',
-            timestamp: timestampIso,
-            actor: 'Official',
-            actorName: identity.profile?.name || 'Department Officer',
-            notes: `Rework Requested: ${notes}`,
-          }),
+        applyReportStatusTransition(tx, reportRef, reportData, 'In Progress', { uid: identity.uid, role: identity.profile?.role || 'Department_Head', name: identity.profile?.name || 'Department Officer' }, {
+          notes: `Rework Requested: ${notes}`,
+          extraUpdates: { workflowStage: 'in_progress', queueStatus: 'in_progress' },
         });
       } else if (action === 'reject') {
-        const transition = validateStatusTransition(reportData.status, 'Rejected');
-        if (!transition.valid) throw new Error(transition.reason);
-
         updatedStatus = 'Rejected';
 
-        tx.update(reportRef, {
-          status: 'Rejected',
-          workflowStage: 'completed',
-          queueStatus: 'completed',
-          actionLog: FieldValue.arrayUnion({
-            status: 'Rejected',
-            timestamp: timestampIso,
-            actor: 'Official',
-            actorName: identity.profile?.name || 'Department Officer',
-            notes: notes || 'Resolution rejected by department officer.',
-          }),
+        applyReportStatusTransition(tx, reportRef, reportData, 'Rejected', { uid: identity.uid, role: identity.profile?.role || 'Department_Head', name: identity.profile?.name || 'Department Officer' }, {
+          notes: notes || 'Resolution rejected by department officer.',
+          extraUpdates: { workflowStage: 'completed', queueStatus: 'completed' },
         });
       }
     });
+
+    try { await emitWorkflowEvent(action === 'approve' ? 'COMPLAINT_RESOLVED' : action === 'rework' ? 'REWORK_REQUESTED' : 'STATUS_CHANGED', reportId, { action, status: updatedStatus, notes }, identity.uid, identity.role === 'admin' ? 'Admin' : 'Department_Head'); } catch (eventError) { console.warn('[department verify] Event logging failed:', eventError); }
 
     // Send push notification
     ;(async () => {

@@ -36,9 +36,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import Image from 'next/image';
+import { useAuth } from '@/firebase';
 import { useUser } from '@/firebase/provider';
 import { useRouter } from 'next/navigation';
-import { aiDamageAssessment } from '@/ai/flows/ai-damage-assessment';
+import { buildAuthHeaders } from '@/lib/client-auth';
 import type { AIAnalysis } from '@/lib/types';
 import { useDuplicateDetection } from '@/hooks/use-duplicate-detection';
 import Link from 'next/link';
@@ -104,13 +105,14 @@ export default function ReportProblemPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { user } = useUser();
+  const auth = useAuth();
   const router = useRouter();
 
   const compressImageDataUrl = useCallback((sourceDataUrl: string): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image();
       img.onload = () => {
-        const maxDimension = 1024;
+        const maxDimension = 768;
         const scale = Math.min(maxDimension / img.width, maxDimension / img.height, 1);
         const width = Math.max(1, Math.round(img.width * scale));
         const height = Math.max(1, Math.round(img.height * scale));
@@ -126,7 +128,7 @@ export default function ReportProblemPage() {
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.85));
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
       };
       img.onerror = () => reject(new Error('Failed to load image for compression.'));
       img.src = sourceDataUrl;
@@ -151,41 +153,43 @@ export default function ReportProblemPage() {
   const runAiAnalysis = useCallback(async (imageDataUrl: string) => {
     setIsAnalyzing(true);
     try {
-      const result = (await aiDamageAssessment({ mediaDataUri: imageDataUrl })) as any;
+      const headers = await buildAuthHeaders(auth);
+      const response = await fetch('/api/ai/analyze-image', {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaDataUri: imageDataUrl }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || `Image analysis failed (${response.status}).`);
+      }
+
+      const result = payload.result as any;
+      const analysisAvailable = Boolean(payload.analysisAvailable);
+
+      if (!analysisAvailable) {
+        setCachedAiAnalysis(null);
+        setCachedAiPhoto(null);
+        toast({
+          title: 'AI Analysis Unavailable',
+          description: 'No reliable AI result was returned. Please select the category and write the description manually.',
+        });
+        return;
+      }
+
       const normalizedCategory = normalizeCategory(result.damageCategory || 'None');
       form.setValue('category', normalizedCategory);
-      if (result.description) {
-        form.setValue('description', result.description);
+      if (result.description?.trim()) {
+        form.setValue('description', result.description.trim());
       }
       setCachedAiAnalysis(result);
       setCachedAiPhoto(imageDataUrl);
 
-      // Add suggested location details to description if no custom location is set
-      if (result.suggestedLocationDetails && !form.getValues('location')) {
-        const currentDescription = form.getValues('description');
-        const enhancedDescription = `${currentDescription} (Suggested location: ${result.suggestedLocationDetails})`;
-        if (enhancedDescription.length <= 500) {
-          form.setValue('description', enhancedDescription);
-        }
-      }
-
-      // Show different toast messages based on analysis type
-      const isServiceFallback =
-        result.description.includes('Unable to analyze image at this time due to service limits') ||
-        result.description.includes('AI analysis is temporarily unavailable due to key or permission settings');
-
-      if (isServiceFallback) {
-        toast({
-          title: 'Analysis Complete',
-          description: 'Service is currently busy. Please fill in the form details manually.',
-          variant: 'default',
-        });
-      } else {
-        toast({
-          title: 'AI Analysis Complete',
-          description: 'The form has been pre-filled with our analysis.',
-        });
-      }
+      toast({
+        title: 'AI Analysis Complete',
+        description: 'The form has been pre-filled from the photo.',
+      });
     } catch (e) {
       console.error("AI analysis failed during form fill:", e);
       setCachedAiAnalysis(null);

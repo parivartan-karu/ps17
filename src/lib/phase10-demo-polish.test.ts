@@ -69,7 +69,7 @@ export function runPhase10Verification(): { passed: number; failed: number; erro
     priority: 'Critical',
     slaBreached: true,
     escalationLevel: 1,
-    escalatedTo: 'Central SMC Administration',
+    escalatedTo: 'Pune Municipal Corporation Administration',
   };
 
   const isBreached = !!slaDemo.slaBreached;
