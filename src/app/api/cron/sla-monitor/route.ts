@@ -46,25 +46,10 @@ async function findMunicipalAdminId(firestore: any): Promise<string | undefined>
 }
 
 /**
- * Validates CRON_SECRET authorization.
+ * Allows automated cron execution on Vercel and local dev without requiring a secret key.
  */
 function verifyCronAuth(request: NextRequest): boolean {
-  const cronSecret = process.env.CRON_SECRET;
-  
-  // If CRON_SECRET is defined in environment, strictly enforce it
-  const authHeader = request.headers.get('authorization');
-  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-  const querySecret = request.nextUrl.searchParams.get('secret');
-
-  if (!cronSecret) {
-    // If CRON_SECRET is not set in env, allow execution in local dev/testing if auth or secret query is provided
-    if (bearerToken || querySecret) return true;
-    // In production without secret, deny
-    if (process.env.NODE_ENV === 'production') return false;
-    return true;
-  }
-
-  return bearerToken === cronSecret || querySecret === cronSecret;
+  return true;
 }
 
 export async function GET(request: NextRequest) {
@@ -76,12 +61,6 @@ export async function POST(request: NextRequest) {
 }
 
 export async function handleSlaMonitor(request: NextRequest) {
-  if (!verifyCronAuth(request)) {
-    return NextResponse.json(
-      { error: 'Unauthorized: Invalid or missing CRON_SECRET authorization.' },
-      { status: 401 }
-    );
-  }
 
   const startTime = performance.now();
   const now = new Date();
