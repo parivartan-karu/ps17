@@ -59,6 +59,7 @@ export default function WorkerTaskListPage() {
                   <TableHead className="hidden sm:table-cell">Location</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden md:table-cell">Priority</TableHead>
+                  <TableHead className="hidden lg:table-cell">SLA Deadline</TableHead>
                   <TableHead className="text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
@@ -70,35 +71,50 @@ export default function WorkerTaskListPage() {
                       <TableCell className="hidden sm:table-cell"><Skeleton className="h-5 w-32" /></TableCell>
                       <TableCell><Skeleton className="h-6 w-20" /></TableCell>
                       <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-16" /></TableCell>
+                      <TableCell className="hidden lg:table-cell"><Skeleton className="h-5 w-24" /></TableCell>
                       <TableCell className="text-right"><Skeleton className="ml-auto h-8 w-20" /></TableCell>
                     </TableRow>
                   ))}
                 {!isLoading &&
-                  tasks.map((task) => (
-                    <TableRow key={task.id}>
-                      <TableCell className="font-medium">
-                        <div className="max-w-[220px] truncate sm:max-w-none sm:whitespace-normal">{task.description}</div>
-                        <div className="mt-1 text-xs text-muted-foreground sm:hidden">{task.location}</div>
-                      </TableCell>
-                      <TableCell className="hidden sm:table-cell">{task.location}</TableCell>
-                      <TableCell>
-                        <Badge className={workerStatusColors[task.status]}>{task.status}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={task.priority === 'High' || task.priority === 'Critical' ? 'destructive' : 'secondary'}>
-                          {task.priority || 'N/A'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button asChild variant="outline" size="sm">
-                          <Link href={`/worker/task/${task.id}`}>
-                            View
-                            <ArrowRight className="ml-2 h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  tasks.map((task) => {
+                    const diffMs = task.slaDeadline ? new Date(task.slaDeadline).getTime() - Date.now() : null;
+                    const isOverdue = task.slaBreached || (diffMs !== null && diffMs <= 0);
+
+                    return (
+                      <TableRow key={task.id}>
+                        <TableCell className="font-medium">
+                          <div className="max-w-[220px] truncate sm:max-w-none sm:whitespace-normal">{task.description}</div>
+                          <div className="mt-1 text-xs text-muted-foreground sm:hidden">{task.location}</div>
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell">{task.location}</TableCell>
+                        <TableCell>
+                          <Badge className={workerStatusColors[task.status]}>{task.status}</Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge variant={task.priority === 'High' || task.priority === 'Critical' ? 'destructive' : 'secondary'}>
+                            {task.priority || 'N/A'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell">
+                          {task.slaDeadline ? (
+                            <Badge className={isOverdue ? 'bg-rose-100 text-rose-800 border-rose-200 text-[10px]' : 'bg-amber-100 text-amber-800 border-amber-200 text-[10px]'}>
+                              {isOverdue ? '⚠️ Overdue' : `⏳ ${new Date(task.slaDeadline).toLocaleDateString()} ${new Date(task.slaDeadline).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Standard 24h</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={`/worker/task/${task.id}`}>
+                              View
+                              <ArrowRight className="ml-2 h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
           </div>

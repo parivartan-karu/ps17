@@ -311,7 +311,55 @@ export async function handleSlaMonitor(request: NextRequest) {
         continue;
       }
 
-      // ── CASE B: NEAR-BREACH REMINDER (reminderThresholdMs <= nowMs < deadlineMs) ─
+      // ── CASE B1: 6-HOUR WORKER SLA REMINDER (6 hours before deadline) ───────────
+      const sixHoursMs = 6 * 3600 * 1000;
+      const isWithin6Hours = (deadlineMs - nowMs) <= sixHoursMs && nowMs < deadlineMs;
+      if (isWithin6Hours && report.assignedWorkerId && !report.slaBreached && !(report as any).worker6hReminderSent) {
+        const remainingHours = Math.max(1, Math.round((deadlineMs - nowMs) / (3600 * 1000)));
+        const newActionLog = {
+          status: report.status,
+          timestamp: nowIso,
+          actor: 'System' as const,
+          actorName: 'SLA Automation Monitor',
+          notes: `⏳ 6-Hour SLA Reminder: Resolution deadline in ${remainingHours} hours. Direct reminder sent to worker (${report.assignedContractor || 'Worker'}).`,
+        };
+
+        await firestore.runTransaction(async (transaction: any) => {
+          const ref = firestore.collection('reports').doc(report.id);
+          const currentDoc = await transaction.get(ref);
+          if (!currentDoc.exists) return;
+          const data = currentDoc.data() as Report;
+
+          transaction.update(ref, {
+            worker6hReminderSent: true,
+            lastReminderSentAt: nowIso,
+            actionLog: [...(data.actionLog || []), newActionLog],
+          });
+        });
+
+        try { await emitWorkflowEvent('SLA_WARNING', report.id, { kind: '6h_worker_reminder', remainingHours }, undefined, 'AI_System', report.departmentId); } catch {}
+        remindersSent++;
+        reportUpdates.push({ id: report.id, type: 'reminder' });
+
+        await dispatchNotification({
+          input: {
+            type: 'reminder',
+            reportId: report.id,
+            reportTitle: report.description,
+            category: report.category,
+            departmentId: report.departmentId,
+            departmentName: report.department,
+            priority: report.priority,
+            assignedWorkerName: report.assignedContractor,
+            targetUserId: report.assignedWorkerId,
+            targetUserRole: 'worker',
+            customDetails: `SLA Reminder: You have under 6 hours (${remainingHours}h remaining) to resolve task #${report.id.slice(0, 8)}.`,
+          },
+          sendSms: false,
+        });
+      }
+
+      // ── CASE B2: NEAR-BREACH REMINDER (reminderThresholdMs <= nowMs < deadlineMs) ─
       if (nowMs >= reminderThresholdMs && nowMs < deadlineMs && !report.slaBreached && !(report as any).resolutionSlaWarning80Sent) {
         // IDEMPOTENCY CHECK:
         // Skip if reminder was already sent for this deadline window

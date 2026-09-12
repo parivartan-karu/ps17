@@ -5,6 +5,8 @@ import { normalizeDepartmentId } from '@/lib/departments';
 import { applyReportStatusTransition } from '@/lib/status-transition-service';
 import type { AssignmentHistory } from '@/lib/types';
 import { FieldValue } from 'firebase-admin/firestore';
+import { calculateSlaDeadlines, getSlaTargets } from '@/lib/sla';
+import { dispatchNotification } from '@/ai/agents/communication-agent';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -22,6 +24,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
     const { firestore } = await getFirebaseAdmin();
     let actualWorkerName = 'Worker';
+    let assignedSlaDeadline: string | null = null;
+    let assignedSlaHours: number = 24;
 
     await firestore.runTransaction(async (tx: any) => {
       const reportRef = firestore.collection('reports').doc(reportId);
@@ -63,6 +67,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         throw new Error(`${actualWorkerName} is already at maximum capacity (${active}/${max} tasks).`);
       }
 
+      // Calculate SLA deadline based on priority if not set or refresh for assignment
+      const priority = reportData.priority || 'Medium';
+      const slaCalculated = calculateSlaDeadlines({ priority, departmentId: reportDeptId });
+      const slaTargets = getSlaTargets(priority, reportDeptId);
+      assignedSlaDeadline = reportData.slaDeadline || slaCalculated.slaDeadline;
+      assignedSlaHours = slaTargets.resolutionHours;
+
       // Handle reassignments: decrement previous worker's activeTasks if needed (Requirements 7 & 8)
       if (isReassignment && reportData.assignedWorkerId) {
         const prevWorkerRef = firestore.collection('users').doc(reportData.assignedWorkerId);
@@ -74,13 +85,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       }
 
       const timestampIso = new Date().toISOString();
-      const logEntry = {
-        status: 'Assigned',
-        timestamp: timestampIso,
-        actor: 'Official',
-        actorName: identity.profile.name ?? 'Dept Head',
-        notes: `Assigned to ${actualWorkerName} by department.`,
-      };
 
       const historyEntry: AssignmentHistory = {
         id: `assign_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -94,15 +98,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       };
 
       applyReportStatusTransition(tx, reportRef, reportData as any, 'Assigned', { uid: identity.uid, role: identity.profile.role, name: identity.profile.name ?? 'Department Head' }, {
-        notes: `Assigned to ${actualWorkerName} by department.`,
+        notes: `Assigned to ${actualWorkerName} by department. SLA target: ${assignedSlaHours} hours.`,
         extraUpdates: {
-        queueStatus: 'assigned_worker',
-        workflowStage: 'assigned_worker',
-        assignedWorkerId: workerId,
-        assignedContractor: actualWorkerName,
-        assignedBy: identity.uid,
-        assignmentMethod: 'admin_assign',
-        assignmentHistory: FieldValue.arrayUnion(historyEntry),
+          queueStatus: 'assigned_worker',
+          workflowStage: 'assigned_worker',
+          assignedWorkerId: workerId,
+          assignedContractor: actualWorkerName,
+          assignedBy: identity.uid,
+          assignmentMethod: 'admin_assign',
+          slaDeadline: assignedSlaDeadline,
+          slaResponseDeadline: reportData.slaResponseDeadline || slaCalculated.slaResponseDeadline,
+          slaDurationHours: assignedSlaHours,
+          slaAssignedAt: timestampIso,
+          assignmentHistory: FieldValue.arrayUnion(historyEntry),
         },
       });
 
@@ -111,6 +119,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         tx.update(workerRef, { activeTasks: active + 1 });
       }
     });
+
+    // Notify assigned worker about task & SLA deadline
+    ;(async () => {
+      try {
+        await dispatchNotification({
+          input: {
+            type: 'reminder',
+            reportId,
+            targetUserId: workerId,
+            targetUserRole: 'worker',
+            customDetails: `Assigned Task #${reportId.slice(0, 8)} (${assignedSlaHours}h SLA Deadline). Please inspect and resolve promptly.`,
+          },
+          sendSms: false,
+        });
+      } catch {}
+    })();
 
     // Push notification to citizen (fire-and-forget)
     ;(async () => {
@@ -125,7 +149,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         const admin = await getFirebaseAdmin();
         await getMessaging(admin.app).sendEachForMulticast({
           tokens,
-          notification: { title: '👷 Worker Assigned', body: `${actualWorkerName} has been assigned to your complaint.` },
+          notification: { title: 'Worker Assigned', body: `${actualWorkerName} has been assigned to your complaint.` },
           webpush: {
             notification: { icon: '/icons/icon-192x192.png', tag: `complaint-${reportId}` },
             fcmOptions: { link: `/citizen/complaint/${reportId}` },
@@ -135,7 +159,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       } catch {}
     })();
 
-    return NextResponse.json({ success: true, assignedWorkerName: actualWorkerName });
+    return NextResponse.json({ success: true, assignedWorkerName: actualWorkerName, slaDeadline: assignedSlaDeadline, slaDurationHours: assignedSlaHours });
   } catch (error) {
     if (error instanceof RequestAuthError) return NextResponse.json({ error: error.message }, { status: error.status });
     const msg = error instanceof Error ? error.message : 'Assignment failed.';

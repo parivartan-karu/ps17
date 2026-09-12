@@ -12,6 +12,7 @@ import {
   Calendar,
   Camera,
   CheckCircle2,
+  Clock,
   Loader2,
   MapPin,
   ShieldCheck,
@@ -441,6 +442,42 @@ export default function WorkerTaskPage() {
                 <div>
                   <p className="font-semibold">Reported on</p>
                   <p className="text-sm text-muted-foreground">{new Date(report.timestamp).toLocaleString()}</p>
+                </div>
+              </div>
+              <Separator />
+              <div className="flex items-start gap-3">
+                <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold">SLA Deadline</p>
+                  {report.slaDeadline ? (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+                        {new Date(report.slaDeadline).toLocaleString()}
+                        {(report as any).slaDurationHours ? ` (${(report as any).slaDurationHours}h SLA)` : ''}
+                      </p>
+                      {(() => {
+                        const diffMs = new Date(report.slaDeadline).getTime() - Date.now();
+                        const isOverdue = report.slaBreached || diffMs <= 0;
+                        if (isOverdue) {
+                          return (
+                            <Badge variant="destructive" className="text-[10px] font-bold">
+                              OVERDUE / SLA BREACHED
+                            </Badge>
+                          );
+                        }
+                        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+                        const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+                        const timeStr = hours > 0 ? `${hours}h ${mins}m remaining` : `${mins}m remaining`;
+                        return (
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-[10px] font-bold">
+                            {timeStr}
+                          </Badge>
+                        );
+                      })()}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Standard 24h SLA Target</p>
+                  )}
                 </div>
               </div>
               <Separator />

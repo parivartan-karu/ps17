@@ -160,9 +160,34 @@ export default function DeptComplaintDetailPage() {
             <p className="text-xs font-medium opacity-70">#{report.id.slice(-6).toUpperCase()}</p>
             <h1 className="text-lg font-bold mt-0.5">{report.status}</h1>
           </div>
-          <div className="flex flex-wrap gap-2 justify-end"><Badge className={`${statusColors[report.status]} border font-semibold`}>{report.priority ?? 'Low'} Priority</Badge><Badge variant="outline">Difficulty: {report.difficulty ?? 'Moderate'}</Badge>{typeof report.riskScore === 'number' && <Badge variant="outline">Risk {report.riskScore}/100</Badge>}</div>
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Badge className={`${statusColors[report.status]} border font-semibold`}>{report.priority ?? 'Low'} Priority</Badge>
+            <Badge variant="outline">Difficulty: {report.difficulty ?? 'Moderate'}</Badge>
+            {typeof report.riskScore === 'number' && <Badge variant="outline">Risk {report.riskScore}/100</Badge>}
+            {(report as any).slaDurationHours && <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 border-indigo-200">SLA: {(report as any).slaDurationHours}h Target</Badge>}
+          </div>
         </div>
       </div>
+
+      {/* SLA Breach / Overdue Alert Banner for Dept Head */}
+      {(report.slaBreached || (report.slaDeadline && new Date(report.slaDeadline).getTime() < Date.now())) && !['Resolved', 'Rejected'].includes(report.status) && (
+        <div className="rounded-2xl p-4 bg-rose-50 border border-rose-200 text-rose-900 flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-600 text-white font-bold">
+              <AlertTriangle className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-rose-950">Overdue / SLA Resolution Breached</h4>
+              <p className="text-xs text-rose-700">
+                Task assigned to <strong>{assignedWorker?.name || report.assignedContractor || 'Assigned Worker'}</strong> exceeded its deadline ({report.slaDeadline ? new Date(report.slaDeadline).toLocaleString() : 'N/A'}). Department head intervention required.
+              </p>
+            </div>
+          </div>
+          <Badge variant="destructive" className="shrink-0 text-xs font-extrabold px-3 py-1">
+            SLA OVERDUE
+          </Badge>
+        </div>
+      )}
 
       {/* Complaint info */}
       <Card className="border-0 shadow-sm">

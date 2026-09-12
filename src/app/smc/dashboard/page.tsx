@@ -7,7 +7,7 @@ import { collection, orderBy, query, where, DocumentData, Query } from 'firebase
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import type { Report, User as UserType } from '@/lib/types';
-import { AlertTriangle, BellRing, Bot, CheckCircle2, ChevronRight, Clock3, Flame, MapPin, ShieldAlert, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, BellRing, Bot, Building, CheckCircle2, ChevronRight, Clock3, Flame, MapPin, ShieldAlert, Users, Wrench } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -61,7 +61,24 @@ export default function SmcDashboard() {
     return { risk, escalated, unassigned, clusters };
   }, [active]);
 
-  const departmentWorkload = useMemo(() => Object.entries(active.reduce<Record<string, number>>((a,r) => { const d=r.department || 'Unassigned'; a[d]=(a[d]||0)+1; return a; }, {})).sort((a,b)=>b[1]-a[1]).slice(0,8), [active]);
+  const departmentWorkload = useMemo(() => {
+    const deptMap: Record<string, { active: number; overdue: number }> = {};
+    const now = Date.now();
+
+    active.forEach((r) => {
+      const d = r.department || 'Unassigned';
+      if (!deptMap[d]) deptMap[d] = { active: 0, overdue: 0 };
+      deptMap[d].active += 1;
+      const isOverdue = r.slaBreached || (r.slaDeadline && new Date(r.slaDeadline).getTime() < now);
+      if (isOverdue) deptMap[d].overdue += 1;
+    });
+
+    return Object.entries(deptMap)
+      .map(([name, data]) => ({ name, count: data.active, overdue: data.overdue }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [active]);
+
   const workerWorkload = useMemo(() => [...(workers ?? [])].sort((a,b)=>(b.activeTasks??0)-(a.activeTasks??0)).slice(0,8), [workers]);
   const agentActivity = useMemo(() => reports.flatMap(r => (r.agentLogs || []).map(log => ({...log, reportId:r.id, category:r.category}))).sort((a,b)=>new Date(b.timestamp).getTime()-new Date(a.timestamp).getTime()).slice(0,10), [reports]);
   const mapData = active.filter(r => r.latitude && r.longitude).map(r => ({ lat:r.latitude!, lng:r.longitude!, location:r.location, status:r.status, type:r.category, category:r.category, department:r.department, reportId:r.id, imageUrl:r.imageUrl, description:r.description, priority:r.priority, date:new Date(r.timestamp).toLocaleDateString('en-IN'), count:1 }));
@@ -89,7 +106,37 @@ export default function SmcDashboard() {
         {!isLoading && ((queue==='clusters' ? queues.clusters.length : selected.length)===0) && <div className="p-8 text-center text-sm text-muted-foreground">No active exceptions in this queue.</div>}
       </CardContent></Card>
 
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base">Department Workload</CardTitle></CardHeader><CardContent className="space-y-3">{departmentWorkload.map(([name,count]) => <div key={name}><div className="flex justify-between text-sm mb-1"><span>{name}</span><b>{count}</b></div><div className="h-2 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary" style={{width:`${Math.min(100,count/Math.max(1,active.length)*100)}%`}}/></div></div>)}{departmentWorkload.length===0&&<p className="text-sm text-muted-foreground">No active workload.</p>}</CardContent></Card>
+      <Card>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Building className="h-4 w-4 text-indigo-600" /> Department Performance
+          </CardTitle>
+          <Button size="sm" variant="ghost" asChild className="h-7 text-xs text-indigo-600 font-semibold">
+            <Link href="/smc/analytics">Detailed Scorecard &rarr;</Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {departmentWorkload.map(({ name, count, overdue }) => (
+            <div key={name} className="space-y-1">
+              <div className="flex justify-between items-center text-sm">
+                <span className="font-semibold text-slate-800 flex items-center gap-1.5">
+                  {name}
+                  {overdue > 0 && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-extrabold">
+                      {overdue} Overdue
+                    </Badge>
+                  )}
+                </span>
+                <span className="font-bold text-slate-900">{count} active</span>
+              </div>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className={`h-full ${overdue > 0 ? 'bg-rose-500' : 'bg-indigo-600'}`} style={{ width: `${Math.min(100, (count / Math.max(1, active.length)) * 100)}%` }} />
+              </div>
+            </div>
+          ))}
+          {departmentWorkload.length === 0 && <p className="text-sm text-muted-foreground">No active department workload.</p>}
+        </CardContent>
+      </Card>
     </div>
 
     <div className="grid lg:grid-cols-[1fr_1fr] gap-4">

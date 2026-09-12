@@ -29,6 +29,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { normalizeDepartmentId } from '@/lib/departments';
+import { DeptIcon } from '@/components/dept-icon';
 
 const COLORS = ['#0ea5e9', '#22c55e', '#f59e0b', '#f97316', '#8b5cf6', '#ec4899'];
 const ACTIVE_STATUSES: ReportStatus[] = ['Submitted', 'Under Verification', 'Assigned', 'In Progress'];
@@ -207,6 +209,77 @@ export default function SmcAnalyticsPage() {
       .sort((a, b) => b.resolvedCount - a.resolvedCount)
       .slice(0, 8);
 
+    // Aggregate Department SLA Performance Scorecard
+    const deptPerformanceMap: Record<string, {
+      deptName: string;
+      deptId: string;
+      totalCount: number;
+      activeCount: number;
+      resolvedCount: number;
+      resolvedOnTimeCount: number;
+      overdueCount: number;
+      totalResolutionHours: number;
+      validResolutionCount: number;
+    }> = {};
+
+    const nowMs = Date.now();
+    rangeReports.forEach((report) => {
+      const deptName = report.department || 'Unassigned';
+      const deptId = normalizeDepartmentId(report.departmentId || report.department) || 'unassigned';
+
+      if (!deptPerformanceMap[deptId]) {
+        deptPerformanceMap[deptId] = {
+          deptName,
+          deptId,
+          totalCount: 0,
+          activeCount: 0,
+          resolvedCount: 0,
+          resolvedOnTimeCount: 0,
+          overdueCount: 0,
+          totalResolutionHours: 0,
+          validResolutionCount: 0,
+        };
+      }
+
+      const entry = deptPerformanceMap[deptId];
+      entry.totalCount += 1;
+
+      const isActive = ACTIVE_STATUSES.includes(report.status);
+      if (isActive) {
+        entry.activeCount += 1;
+        const isOverdue = report.slaBreached || (report.slaDeadline && new Date(report.slaDeadline).getTime() < nowMs);
+        if (isOverdue) entry.overdueCount += 1;
+      }
+
+      if (report.status === 'Resolved') {
+        entry.resolvedCount += 1;
+        if (!report.slaBreached) entry.resolvedOnTimeCount += 1;
+        const resHours = getResolutionHours(report);
+        if (resHours !== null) {
+          entry.totalResolutionHours += resHours;
+          entry.validResolutionCount += 1;
+        }
+      }
+    });
+
+    const departmentPerformanceList = Object.values(deptPerformanceMap).map((d) => {
+      const resolutionRatePct = d.totalCount > 0 ? Math.round((d.resolvedCount / d.totalCount) * 100) : 0;
+      const slaCompliancePct = d.resolvedCount > 0 ? Math.round((d.resolvedOnTimeCount / d.resolvedCount) * 100) : (d.overdueCount > 0 ? 0 : 100);
+      const avgResHours = d.validResolutionCount > 0 ? Number((d.totalResolutionHours / d.validResolutionCount).toFixed(1)) : null;
+
+      let healthStatus: 'Optimal' | 'At Risk' | 'Critical SLA Breach' = 'Optimal';
+      if (d.overdueCount > 2 || slaCompliancePct < 70) healthStatus = 'Critical SLA Breach';
+      else if (d.overdueCount > 0 || slaCompliancePct < 85) healthStatus = 'At Risk';
+
+      return {
+        ...d,
+        resolutionRatePct,
+        slaCompliancePct,
+        avgResHours,
+        healthStatus,
+      };
+    }).sort((a, b) => b.totalCount - a.totalCount);
+
     const slaBreachedCount = rangeReports.filter(r => r.slaBreached).length;
     const escalationLevel1Count = rangeReports.filter(r => r.escalationLevel === 1).length;
     const escalationLevel2Count = rangeReports.filter(r => (r.escalationLevel ?? 0) >= 2).length;
@@ -220,6 +293,7 @@ export default function SmcAnalyticsPage() {
       categoryData,
       locationData,
       departmentData,
+      departmentPerformanceList,
       statusData,
       avgResolutionHours,
       resolutionRate,
@@ -551,6 +625,99 @@ export default function SmcAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Department SLA Performance Scorecard Panel for Admin */}
+      <Card className="shadow-sm border-indigo-100 bg-white">
+        <CardHeader className="p-5 border-b pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg font-bold text-slate-900">
+                <Building className="h-5 w-5 text-indigo-600" />
+                Department SLA Performance Scorecard
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-500 mt-0.5">
+                City-wide department efficiency, active workload, SLA compliance %, and overdue task breaches.
+              </CardDescription>
+            </div>
+            <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 font-bold text-xs self-start sm:self-center px-3 py-1">
+              {analyticsData.departmentPerformanceList.length} Municipal Departments Monitored
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50/90 hover:bg-slate-50/90 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  <TableHead className="py-3 font-bold">Department</TableHead>
+                  <TableHead className="text-center font-bold">Total Cases</TableHead>
+                  <TableHead className="text-center font-bold">Active Queue</TableHead>
+                  <TableHead className="text-center font-bold">Resolved</TableHead>
+                  <TableHead className="text-center font-bold">SLA Compliance</TableHead>
+                  <TableHead className="text-center font-bold">Overdue / Breached</TableHead>
+                  <TableHead className="text-right font-bold">Avg. Resolution</TableHead>
+                  <TableHead className="text-right font-bold">Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {analyticsData.departmentPerformanceList.length > 0 ? (
+                  analyticsData.departmentPerformanceList.map((dept) => (
+                    <TableRow key={dept.deptId} className="hover:bg-slate-50/80 transition-colors">
+                      <TableCell className="font-semibold text-slate-900">
+                        <div className="flex items-center gap-2">
+                          <DeptIcon dept={dept.deptId} className="h-4 w-4 text-indigo-600 shrink-0" />
+                          <span>{dept.deptName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center font-bold">{dept.totalCount}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="outline" className="bg-blue-50/80 text-blue-700 border-blue-200 font-bold">
+                          {dept.activeCount}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-emerald-700">{dept.resolvedCount}</TableCell>
+                      <TableCell className="text-center font-bold">
+                        <span className={dept.slaCompliancePct >= 85 ? 'text-emerald-600' : dept.slaCompliancePct >= 70 ? 'text-amber-600' : 'text-rose-600'}>
+                          {dept.slaCompliancePct}%
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {dept.overdueCount > 0 ? (
+                          <Badge variant="destructive" className="font-extrabold text-xs px-2 py-0.5">
+                            {dept.overdueCount} Overdue
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-medium">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-medium text-slate-700">
+                        {dept.avgResHours !== null ? `${dept.avgResHours}h` : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className={`text-[10px] font-bold px-2 py-0.5 ${
+                          dept.healthStatus === 'Optimal'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : dept.healthStatus === 'At Risk'
+                            ? 'bg-amber-100 text-amber-800 border-amber-200'
+                            : 'bg-rose-100 text-rose-800 border-rose-200'
+                        }`}>
+                          {dept.healthStatus}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
+                      No department data available.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="xl:col-span-2 shadow-sm">
