@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 
-import { normalizeDepartment, normalizeDepartmentId, isReportInDepartment } from '@/lib/departments';
+import { normalizeDepartment, normalizeDepartmentId, isReportInDepartment, getDepartmentOptions } from '@/lib/departments';
 import { DeptIcon } from '@/components/dept-icon';
 import { useToast } from '@/hooks/use-toast';
 import { buildAuthHeaders } from '@/lib/client-auth';
@@ -41,28 +41,7 @@ function getResolutionHours(report: Report) {
   return (resolvedTime - reportTime) / (1000 * 60 * 60);
 }
 
-const DESIGNATION_OPTIONS = [
-  'Field Repair Worker',
-  'Sanitation Crew',
-  'Garbage Truck Operator',
-  'Road Repair Worker',
-  'Drainage Cleaner',
-  'Pipeline Technician',
-  'Electrical Technician',
-  'Civil Maintenance Technician',
-  'Field Supervisor',
-];
 
-const SKILL_OPTIONS = [
-  'General Maintenance',
-  'Garbage',
-  'Road Repair',
-  'Sanitation',
-  'Electrical',
-  'Drainage Cleaning',
-  'Pipeline Work',
-  'Civil Works',
-];
 
 export default function DeptWorkersPage() {
   const firestore = useFirestore();
@@ -104,6 +83,18 @@ export default function DeptWorkersPage() {
   const userRole = profile?.role as string | undefined;
   const isSystemAdmin = userRole === 'admin' || profile?.name === 'System Admin' || (!profile?.department && (userRole === 'official' || userRole === 'admin'));
   const dept = deptDef?.name || profile?.department || (isSystemAdmin ? 'Admin' : 'Department');
+
+  const deptOptions = useMemo(() => {
+    return getDepartmentOptions(userDeptId || dept);
+  }, [userDeptId, dept]);
+
+  const activeDesignation = newWorkerForm.designation && deptOptions.designations.includes(newWorkerForm.designation)
+    ? newWorkerForm.designation
+    : deptOptions.designations[0];
+
+  const activeSkillType = newWorkerForm.skillType && deptOptions.skills.includes(newWorkerForm.skillType)
+    ? newWorkerForm.skillType
+    : deptOptions.skills[0];
 
   const workersQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -217,10 +208,10 @@ export default function DeptWorkersPage() {
           phoneNumber: newWorkerForm.phoneNumber,
           email: newWorkerForm.email,
           department: dept,
-          designation: newWorkerForm.designation,
-          skillType: newWorkerForm.skillType,
-          assignedContractor: newWorkerForm.assignedContractor || `${dept} Contractor`,
-          wardArea: newWorkerForm.wardArea || 'General Ward',
+          designation: activeDesignation,
+          skillType: activeSkillType,
+          assignedContractor: newWorkerForm.assignedContractor || `${dept} Operations`,
+          wardArea: newWorkerForm.wardArea || 'General Jurisdiction',
         }),
       });
 
@@ -247,9 +238,9 @@ export default function DeptWorkersPage() {
         fullName: '',
         phoneNumber: '',
         email: '',
-        designation: 'Field Repair Worker',
-        skillType: 'General Maintenance',
-        assignedContractor: 'PMC Operations',
+        designation: deptOptions.designations[0],
+        skillType: deptOptions.skills[0],
+        assignedContractor: `${dept} Operations`,
         wardArea: 'General Jurisdiction',
       });
     } catch (e: any) {
@@ -557,14 +548,14 @@ export default function DeptWorkersPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700">Designation / Role</label>
                 <Select
-                  value={newWorkerForm.designation}
+                  value={activeDesignation}
                   onValueChange={val => setNewWorkerForm({ ...newWorkerForm, designation: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select designation" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DESIGNATION_OPTIONS.map(d => (
+                    {deptOptions.designations.map(d => (
                       <SelectItem key={d} value={d}>{d}</SelectItem>
                     ))}
                   </SelectContent>
@@ -574,14 +565,14 @@ export default function DeptWorkersPage() {
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700">Skill Category</label>
                 <Select
-                  value={newWorkerForm.skillType}
+                  value={activeSkillType}
                   onValueChange={val => setNewWorkerForm({ ...newWorkerForm, skillType: val })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select skill" />
                   </SelectTrigger>
                   <SelectContent>
-                    {SKILL_OPTIONS.map(s => (
+                    {deptOptions.skills.map(s => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>

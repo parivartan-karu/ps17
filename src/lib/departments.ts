@@ -407,3 +407,144 @@ export function toDepartmentDisplayAndId(input?: string | null): {
     department: input?.trim() || 'Unassigned',
   };
 }
+
+/**
+ * Returns strict department-specific roles/designations and skill categories.
+ */
+export function getDepartmentOptions(deptInput?: string | null) {
+  const normId = normalizeDepartmentId(deptInput);
+
+  if (normId === 'dept_sanitation') {
+    return {
+      designations: [
+        'Garbage Truck Driver',
+        'Garbage Collector',
+        'Sanitation Crew',
+        'Sweeper',
+        'Waste Segregation Staff',
+        'Sanitation Supervisor',
+        'Field Sanitation Worker',
+      ],
+      skills: [
+        'Garbage Collection',
+        'Sanitation',
+        'Waste Management',
+        'Street Sweeping',
+        'General Maintenance',
+      ],
+    };
+  }
+
+  if (normId === 'dept_engineering' || normId === 'dept_traffic') {
+    return {
+      designations: [
+        'Road Repair Worker',
+        'Asphalt Worker',
+        'Road Repair Technician',
+        'Civil Work Builder',
+        'Junior Engineer',
+        'Road Maintenance Worker',
+      ],
+      skills: [
+        'Road Repair',
+        'Asphalt Work',
+        'Civil Works',
+        'Footpath Repair',
+        'General Maintenance',
+      ],
+    };
+  }
+
+  if (normId === 'dept_electrical') {
+    return {
+      designations: [
+        'Street Light Technician',
+        'Electrical Technician',
+        'Electrician',
+        'Line Technician',
+        'Electrical Engineer',
+      ],
+      skills: [
+        'Electrical Maintenance',
+        'Streetlight Repair',
+        'Power & Wiring',
+        'General Maintenance',
+      ],
+    };
+  }
+
+  if (normId === 'dept_water') {
+    return {
+      designations: [
+        'Drainage Cleaner',
+        'Pipeline Technician',
+        'Plumber',
+        'Water Supply Engineer',
+        'Pump Operator',
+      ],
+      skills: [
+        'Drainage Cleaning',
+        'Pipeline Work',
+        'Water Supply',
+        'Plumbing Work',
+        'General Maintenance',
+      ],
+    };
+  }
+
+  if (normId === 'dept_parks') {
+    return {
+      designations: [
+        'Gardener',
+        'Tree Maintenance Worker',
+        'Park Supervisor',
+        'Environmental Engineer',
+      ],
+      skills: [
+        'Park Maintenance',
+        'Tree Trimming',
+        'Horticulture',
+        'General Maintenance',
+      ],
+    };
+  }
+
+  if (normId === 'dept_public_works') {
+    return {
+      designations: [
+        'Civil Work Builder',
+        'Project Manager',
+        'Supervisor',
+        'Technician',
+        'Field Worker',
+      ],
+      skills: [
+        'Civil Works',
+        'Public Infrastructure',
+        'General Maintenance',
+      ],
+    };
+  }
+
+  // Fallback for general or unassigned
+  return {
+    designations: [
+      'Field Repair Worker',
+      'Sanitation Crew',
+      'Garbage Truck Driver',
+      'Road Repair Worker',
+      'Drainage Cleaner',
+      'Pipeline Technician',
+      'Electrical Technician',
+      'Field Supervisor',
+    ],
+    skills: [
+      'General Maintenance',
+      'Garbage Collection',
+      'Road Repair',
+      'Sanitation',
+      'Electrical Maintenance',
+      'Drainage Cleaning',
+    ],
+  };
+}
