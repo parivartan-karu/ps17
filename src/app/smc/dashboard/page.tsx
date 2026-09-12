@@ -140,7 +140,38 @@ export default function SmcDashboard() {
     </div>
 
     <div className="grid lg:grid-cols-[1fr_1fr] gap-4">
-      <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Wrench className="h-4 w-4"/> Worker Workload</CardTitle></CardHeader><CardContent className="space-y-2">{workerWorkload.map(w => <div key={w.id} className="flex justify-between items-center border-b last:border-0 py-2"><div><p className="font-medium">{w.name}</p><p className="text-xs text-muted-foreground">{w.department || 'Unassigned'}</p></div><Badge variant={(w.activeTasks??0)>=(w.maxTaskCapacity??5)?'destructive':'secondary'}>{w.activeTasks??0}/{w.maxTaskCapacity??5}</Badge></div>)}</CardContent></Card>
+      <Card className="border-indigo-100 shadow-sm">
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2 font-bold text-slate-900">
+            <Building className="h-4 w-4 text-indigo-600" /> Department Performance Breakdown
+          </CardTitle>
+          <Button size="sm" variant="ghost" asChild className="h-7 text-xs text-indigo-600 font-semibold">
+            <Link href="/smc/analytics">Full Analytics &rarr;</Link>
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-2.5">
+          {departmentWorkload.map(({ name, count, overdue }) => (
+            <div key={name} className="flex items-center justify-between p-2 rounded-xl border border-slate-100 bg-slate-50/60">
+              <div>
+                <p className="font-semibold text-xs text-slate-900">{name}</p>
+                <p className="text-[11px] text-muted-foreground">{count} active complaints</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {overdue > 0 ? (
+                  <Badge variant="destructive" className="text-[10px] font-extrabold px-2 py-0.5">
+                    {overdue} Overdue
+                  </Badge>
+                ) : (
+                  <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 text-[10px]">
+                    SLA Compliant
+                  </Badge>
+                )}
+              </div>
+            </div>
+          ))}
+          {departmentWorkload.length === 0 && <p className="text-sm text-muted-foreground">No active department workload.</p>}
+        </CardContent>
+      </Card>
       <Card><CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Bot className="h-4 w-4"/> Agent Activity</CardTitle></CardHeader><CardContent className="space-y-2">{agentActivity.map((a,i)=><div key={`${a.reportId}-${i}`} className="border-b last:border-0 py-2"><div className="flex justify-between gap-2"><span className="font-medium text-sm">{a.agent}</span><Badge variant="outline">{a.status}</Badge></div><p className="text-xs text-muted-foreground truncate">#{a.reportId.slice(0,8)} · {a.outputSummary || a.reasoning || 'Decision recorded'}</p></div>)}{agentActivity.length===0&&<p className="text-sm text-muted-foreground">Agent decisions will appear here.</p>}</CardContent></Card>
     </div>
 

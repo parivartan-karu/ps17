@@ -22,7 +22,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { ArrowUpRight, Building, CalendarRange, CheckCircle2, Clock, FileText, HardHat, MapPin, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, Building, CalendarRange, CheckCircle2, Clock, FileText, HardHat, MapPin, TrendingUp, BarChart3, PieChart as PieChartIcon, Activity, CheckCircle, ShieldAlert, Filter, Sparkles, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -135,6 +135,7 @@ export default function SmcAnalyticsPage() {
   const firestore = useFirestore();
   const [timeRange, setTimeRange] = useState<TimeRange>('30d');
   const [statusScope, setStatusScope] = useState<StatusScope>('all');
+  const [selectedDeptFilter, setSelectedDeptFilter] = useState<string>('all');
 
   const reportsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -147,9 +148,15 @@ export default function SmcAnalyticsPage() {
     if (!reports) return null;
 
     const timeWindowStart = TIME_RANGES[timeRange] === null ? null : Date.now() - TIME_RANGES[timeRange]! * 24 * 60 * 60 * 1000;
-    const rangeReports = reports.filter((report) => {
+    const allRangeReports = reports.filter((report) => {
       if (!timeWindowStart) return true;
       return new Date(report.timestamp).getTime() >= timeWindowStart;
+    });
+
+    const rangeReports = allRangeReports.filter((report) => {
+      if (selectedDeptFilter === 'all') return true;
+      const deptId = normalizeDepartmentId(report.departmentId || report.department) || 'unassigned';
+      return deptId === selectedDeptFilter;
     });
 
     const filteredReports = rangeReports.filter((report) => {
@@ -209,7 +216,7 @@ export default function SmcAnalyticsPage() {
       .sort((a, b) => b.resolvedCount - a.resolvedCount)
       .slice(0, 8);
 
-    // Aggregate Department SLA Performance Scorecard
+    // Aggregate Department SLA Performance Scorecard across allRangeReports
     const deptPerformanceMap: Record<string, {
       deptName: string;
       deptId: string;
@@ -223,7 +230,7 @@ export default function SmcAnalyticsPage() {
     }> = {};
 
     const nowMs = Date.now();
-    rangeReports.forEach((report) => {
+    allRangeReports.forEach((report) => {
       const deptName = report.department || 'Unassigned';
       const deptId = normalizeDepartmentId(report.departmentId || report.department) || 'unassigned';
 
@@ -280,6 +287,27 @@ export default function SmcAnalyticsPage() {
       };
     }).sort((a, b) => b.totalCount - a.totalCount);
 
+    const deptChartData = departmentPerformanceList.map((dept) => ({
+      name: dept.deptName.replace(' Department', '').replace(' & Drainage', ''),
+      fullName: dept.deptName,
+      deptId: dept.deptId,
+      slaCompliancePct: dept.slaCompliancePct,
+      resolutionRatePct: dept.resolutionRatePct,
+      activeCount: dept.activeCount,
+      overdueCount: dept.overdueCount,
+      resolvedCount: dept.resolvedCount,
+      totalCount: dept.totalCount,
+      avgResHours: dept.avgResHours ?? 0,
+    }));
+
+    const sortedBySla = [...departmentPerformanceList].sort((a, b) => b.slaCompliancePct - a.slaCompliancePct);
+    const sortedByOverdue = [...departmentPerformanceList].sort((a, b) => b.overdueCount - a.overdueCount);
+    const sortedBySpeed = [...departmentPerformanceList].filter(d => d.avgResHours !== null).sort((a, b) => a.avgResHours! - b.avgResHours!);
+
+    const bestDept = sortedBySla[0] || null;
+    const mostOverdueDept = sortedByOverdue[0] && sortedByOverdue[0].overdueCount > 0 ? sortedByOverdue[0] : null;
+    const fastestDept = sortedBySpeed[0] || null;
+
     const slaBreachedCount = rangeReports.filter(r => r.slaBreached).length;
     const escalationLevel1Count = rangeReports.filter(r => r.escalationLevel === 1).length;
     const escalationLevel2Count = rangeReports.filter(r => (r.escalationLevel ?? 0) >= 2).length;
@@ -294,6 +322,10 @@ export default function SmcAnalyticsPage() {
       locationData,
       departmentData,
       departmentPerformanceList,
+      deptChartData,
+      bestDept,
+      mostOverdueDept,
+      fastestDept,
       statusData,
       avgResolutionHours,
       resolutionRate,
@@ -310,7 +342,7 @@ export default function SmcAnalyticsPage() {
       totalBreachedOrEscalated,
       slaComplianceRate,
     };
-  }, [reports, statusScope, timeRange]);
+  }, [reports, statusScope, timeRange, selectedDeptFilter]);
 
   if (isLoading || !analyticsData) {
     return (
@@ -370,9 +402,25 @@ export default function SmcAnalyticsPage() {
               </p>
             </div>
           </div>
-          <div className="grid gap-3 sm:grid-cols-2 lg:min-w-[360px]">
+          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[540px]">
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Timeline</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 font-semibold">Department</p>
+              <Select value={selectedDeptFilter} onValueChange={(value) => setSelectedDeptFilter(value)}>
+                <SelectTrigger className="bg-white/80">
+                  <SelectValue placeholder="All Departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {analyticsData.departmentPerformanceList.map((dept) => (
+                    <SelectItem key={dept.deptId} value={dept.deptId}>
+                      {dept.deptName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 font-semibold">Timeline</p>
               <Select value={timeRange} onValueChange={(value) => setTimeRange(value as TimeRange)}>
                 <SelectTrigger className="bg-white/80">
                   <SelectValue placeholder="Select range" />
@@ -386,7 +434,7 @@ export default function SmcAnalyticsPage() {
               </Select>
             </div>
             <div className="space-y-2">
-              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Status</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500 font-semibold">Status</p>
               <Select value={statusScope} onValueChange={(value) => setStatusScope(value as StatusScope)}>
                 <SelectTrigger className="bg-white/80">
                   <SelectValue placeholder="Select status" />
@@ -526,6 +574,166 @@ export default function SmcAnalyticsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Department-Wise Insights Chart Dashboard */}
+      <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/40 via-white to-sky-50/40 shadow-sm">
+        <CardHeader className="border-b pb-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold text-indigo-800 mb-1">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                Department Comparative Insights
+              </div>
+              <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-900">
+                <BarChart3 className="h-5 w-5 text-indigo-600" />
+                Department-Wise SLA & Workload Chart Dashboard
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-600">
+                Interactive charts comparing SLA compliance rates, resolution efficiency, and active vs overdue workload across all municipal departments.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-white border-indigo-200 text-indigo-700 font-bold text-xs px-3 py-1.5 shadow-xs">
+                <Building className="h-3.5 w-3.5 mr-1" />
+                {analyticsData.deptChartData.length} Departments Tracked
+              </Badge>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-6 space-y-6">
+          <div className="grid gap-6 xl:grid-cols-2">
+            {/* Chart 1: SLA Compliance % vs Resolution Rate % */}
+            <div className="bg-white rounded-xl border p-4 shadow-xs">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <Activity className="h-4 w-4 text-emerald-500" />
+                    SLA Compliance % vs Resolution Rate %
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">Department efficiency & on-time SLA fulfillment benchmark</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={290}>
+                <BarChart data={analyticsData.deptChartData} margin={{ top: 10, right: 10, left: -15, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                  />
+                  <YAxis domain={[0, 100]} unit="%" tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+                      fontSize: '12px',
+                    }}
+                    formatter={(value: any, name: any) => [`${value}%`, name === 'slaCompliancePct' ? 'SLA Compliance' : 'Resolution Rate']}
+                  />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '11px' }} />
+                  <Bar dataKey="slaCompliancePct" name="SLA Compliance %" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
+                  <Bar dataKey="resolutionRatePct" name="Resolution Rate %" fill="#0ea5e9" radius={[4, 4, 0, 0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Chart 2: Active Backlog vs SLA Overdue Breaches */}
+            <div className="bg-white rounded-xl border p-4 shadow-xs">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4 text-rose-500" />
+                    Active Workload vs SLA Overdue Breaches
+                  </h4>
+                  <p className="text-[11px] text-muted-foreground">Volume of active field complaints compared to overdue SLA breaches</p>
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={290}>
+                <BarChart data={analyticsData.deptChartData} margin={{ top: 10, right: 10, left: -15, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                  <XAxis
+                    dataKey="name"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    interval={0}
+                    angle={-20}
+                    textAnchor="end"
+                  />
+                  <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      boxShadow: '0 10px 24px rgba(15, 23, 42, 0.08)',
+                      fontSize: '12px',
+                    }}
+                    formatter={(value: any, name: any) => [value, name === 'activeCount' ? 'Active Queue' : 'SLA Overdue']}
+                  />
+                  <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: '11px' }} />
+                  <Bar dataKey="activeCount" name="Active Queue" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={16} />
+                  <Bar dataKey="overdueCount" name="Overdue Breaches" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={16} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Key Insights Highlights Row */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {analyticsData.bestDept && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-bold shrink-0">
+                  <CheckCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">Highest SLA Compliance</p>
+                  <p className="font-bold text-sm text-emerald-950 mt-0.5">{analyticsData.bestDept.deptName}</p>
+                  <p className="text-xs text-emerald-700 font-medium">
+                    {analyticsData.bestDept.slaCompliancePct}% on-time resolution ({analyticsData.bestDept.resolvedCount} resolved cases)
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {analyticsData.mostOverdueDept && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/70 p-3.5 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-rose-600 text-white flex items-center justify-center font-bold shrink-0">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-rose-800 uppercase tracking-wide">Requires SLA Attention</p>
+                  <p className="font-bold text-sm text-rose-950 mt-0.5">{analyticsData.mostOverdueDept.deptName}</p>
+                  <p className="text-xs text-rose-700 font-medium">
+                    {analyticsData.mostOverdueDept.overdueCount} overdue breaches | {analyticsData.mostOverdueDept.activeCount} active in queue
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {analyticsData.fastestDept && (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/70 p-3.5 flex items-start gap-3">
+                <div className="h-9 w-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-indigo-800 uppercase tracking-wide">Fastest Resolution Speed</p>
+                  <p className="font-bold text-sm text-indigo-950 mt-0.5">{analyticsData.fastestDept.deptName}</p>
+                  <p className="text-xs text-indigo-700 font-medium">
+                    Avg. {analyticsData.fastestDept.avgResHours}h per complaint resolution
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="shadow-sm">

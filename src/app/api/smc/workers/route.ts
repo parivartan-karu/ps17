@@ -85,7 +85,7 @@ async function generateWorkerId(firestore: Firestore) {
 
 export async function POST(request: NextRequest) {
   try {
-    await requireRequestIdentity(request, ['official', 'admin']);
+    await requireRequestIdentity(request, ['department_head', 'official', 'admin']);
 
     const body = await request.json();
 

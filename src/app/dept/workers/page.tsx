@@ -5,10 +5,11 @@ import Link from 'next/link';
 import { collection, query, where, doc } from 'firebase/firestore';
 import {
   CheckCircle2, Clock3, Flame, Users, HardHat, Star, AlertTriangle,
-  Award, ChevronDown, ChevronUp, ExternalLink, ShieldAlert, ArrowRight, Activity, MapPin
+  Award, ChevronDown, ChevronUp, ExternalLink, ShieldAlert, ArrowRight, Activity, MapPin,
+  UserPlus, Copy, Check, Plus, Loader2, ClipboardList
 } from 'lucide-react';
 
-import { useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
+import { useAuth, useCollection, useDoc, useMemoFirebase, useUser } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import type { Report, User as UserType } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,9 +17,21 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 import { normalizeDepartment, normalizeDepartmentId, isReportInDepartment } from '@/lib/departments';
 import { DeptIcon } from '@/components/dept-icon';
+import { useToast } from '@/hooks/use-toast';
+import { buildAuthHeaders } from '@/lib/client-auth';
 
 function getResolutionHours(report: Report) {
   const resolvedAction = report.actionLog?.find((log) => log.status === 'Resolved');
@@ -28,10 +41,57 @@ function getResolutionHours(report: Report) {
   return (resolvedTime - reportTime) / (1000 * 60 * 60);
 }
 
+const DESIGNATION_OPTIONS = [
+  'Field Repair Worker',
+  'Sanitation Crew',
+  'Garbage Truck Operator',
+  'Road Repair Worker',
+  'Drainage Cleaner',
+  'Pipeline Technician',
+  'Electrical Technician',
+  'Civil Maintenance Technician',
+  'Field Supervisor',
+];
+
+const SKILL_OPTIONS = [
+  'General Maintenance',
+  'Garbage',
+  'Road Repair',
+  'Sanitation',
+  'Electrical',
+  'Drainage Cleaning',
+  'Pipeline Work',
+  'Civil Works',
+];
+
 export default function DeptWorkersPage() {
   const firestore = useFirestore();
+  const auth = useAuth();
   const { user } = useUser();
+  const { toast } = useToast();
+
   const [expandedWorkerId, setExpandedWorkerId] = useState<string | null>(null);
+  const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
+  const [isSubmittingWorker, setIsSubmittingWorker] = useState(false);
+
+  const [newWorkerForm, setNewWorkerForm] = useState({
+    fullName: '',
+    phoneNumber: '',
+    email: '',
+    designation: 'Field Repair Worker',
+    skillType: 'General Maintenance',
+    assignedContractor: 'PMC Operations',
+    wardArea: 'General Jurisdiction',
+  });
+
+  const [createdWorkerCredentials, setCreatedWorkerCredentials] = useState<{
+    workerId: string;
+    password: string;
+    fullName: string;
+    phoneNumber: string;
+    smsStatus?: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const profileRef = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
@@ -124,7 +184,6 @@ export default function DeptWorkersPage() {
         avgRating,
       };
     }).sort((a, b) => {
-      // Prioritize workers with overdue tasks so Dept Head spots them immediately
       if (b.overdueCount !== a.overdueCount) return b.overdueCount - a.overdueCount;
       return b.resolvedCount - a.resolvedCount;
     });
@@ -136,6 +195,73 @@ export default function DeptWorkersPage() {
     : 100;
 
   const isLoading = wLoading || rLoading;
+
+  async function handleAddWorkerSubmit() {
+    if (!newWorkerForm.fullName || !newWorkerForm.phoneNumber) {
+      toast({
+        variant: 'destructive',
+        title: 'Required fields missing',
+        description: 'Please enter worker full name and mobile phone number.',
+      });
+      return;
+    }
+
+    setIsSubmittingWorker(true);
+    try {
+      const headers = await buildAuthHeaders(auth, { 'Content-Type': 'application/json' });
+      const res = await fetch('/api/smc/workers', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          fullName: newWorkerForm.fullName,
+          phoneNumber: newWorkerForm.phoneNumber,
+          email: newWorkerForm.email,
+          department: dept,
+          designation: newWorkerForm.designation,
+          skillType: newWorkerForm.skillType,
+          assignedContractor: newWorkerForm.assignedContractor || `${dept} Contractor`,
+          wardArea: newWorkerForm.wardArea || 'General Ward',
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Worker account creation failed.');
+      }
+
+      setCreatedWorkerCredentials({
+        workerId: data.workerId,
+        password: data.password,
+        fullName: newWorkerForm.fullName,
+        phoneNumber: newWorkerForm.phoneNumber,
+        smsStatus: data.smsStatus,
+      });
+
+      toast({
+        title: 'Worker Account Created',
+        description: `Worker ${newWorkerForm.fullName} added to ${dept}.`,
+      });
+
+      setIsAddWorkerOpen(false);
+      setNewWorkerForm({
+        fullName: '',
+        phoneNumber: '',
+        email: '',
+        designation: 'Field Repair Worker',
+        skillType: 'General Maintenance',
+        assignedContractor: 'PMC Operations',
+        wardArea: 'General Jurisdiction',
+      });
+    } catch (e: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Registration failed',
+        description: e.message || 'Could not create worker account.',
+      });
+    } finally {
+      setIsSubmittingWorker(false);
+    }
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-12 pt-16 md:pt-6 max-w-7xl mx-auto">
@@ -154,12 +280,22 @@ export default function DeptWorkersPage() {
           </p>
         </div>
 
-        {totalOverdueWorkers > 0 && (
-          <Badge className="bg-rose-500/10 text-rose-700 border-rose-300 font-bold text-xs px-3 py-1.5 flex items-center gap-2 shrink-0">
-            <ShieldAlert className="h-4 w-4 text-rose-600" />
-            <span>{totalOverdueWorkers} Worker(s) Have Overdue Tasks</span>
-          </Badge>
-        )}
+        <div className="flex items-center gap-3 self-start md:self-center">
+          {totalOverdueWorkers > 0 && (
+            <Badge className="bg-rose-500/10 text-rose-700 border-rose-300 font-bold text-xs px-3 py-1.5 flex items-center gap-2 shrink-0">
+              <ShieldAlert className="h-4 w-4 text-rose-600" />
+              <span>{totalOverdueWorkers} Worker(s) Overdue</span>
+            </Badge>
+          )}
+
+          <Button
+            size="sm"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-sm cursor-pointer"
+            onClick={() => setIsAddWorkerOpen(true)}
+          >
+            <UserPlus className="mr-2 h-4 w-4" /> Add Field Worker
+          </Button>
+        </div>
       </div>
 
       {/* 4 Stats Cards */}
@@ -199,7 +335,10 @@ export default function DeptWorkersPage() {
           <div className="flex flex-col items-center py-16 text-center border rounded-2xl bg-white">
             <HardHat className="h-14 w-14 text-muted-foreground/30 mb-3" />
             <p className="font-semibold text-muted-foreground">No field workers found in {dept}</p>
-            <p className="text-sm text-muted-foreground mt-1">Contact system administration to register workers to this department.</p>
+            <p className="text-sm text-muted-foreground mt-1">Use the "Add Field Worker" button above to register workers for {dept}.</p>
+            <Button size="sm" className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl" onClick={() => setIsAddWorkerOpen(true)}>
+              <UserPlus className="mr-2 h-4 w-4" /> Add First Field Worker
+            </Button>
           </div>
         )}
 
@@ -226,7 +365,7 @@ export default function DeptWorkersPage() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="font-bold text-slate-900 text-base">{w.name}</h3>
 
-                        {/* Availability Badge (Icon-based, zero emojis) */}
+                        {/* Availability Badge */}
                         <Badge className={isFull ? 'bg-rose-100 text-rose-800 border-rose-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}>
                           {isFull ? (
                             <span className="flex items-center gap-1"><ShieldAlert className="h-3 w-3 text-rose-600" /> Maximum Capacity</span>
@@ -370,6 +509,182 @@ export default function DeptWorkersPage() {
           );
         })}
       </div>
+
+      {/* Add Worker Modal Dialog */}
+      <Dialog open={isAddWorkerOpen} onOpenChange={setIsAddWorkerOpen}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <UserPlus className="h-5 w-5 text-indigo-600" />
+              Register New Field Worker
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Add a new field personnel account assigned specifically to <strong className="text-indigo-600">{dept}</strong>.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">Full Name *</label>
+              <Input
+                placeholder="e.g. Ramesh Kumar"
+                value={newWorkerForm.fullName}
+                onChange={e => setNewWorkerForm({ ...newWorkerForm, fullName: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Mobile Phone Number *</label>
+                <Input
+                  placeholder="e.g. 9876543210"
+                  value={newWorkerForm.phoneNumber}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, phoneNumber: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Email Address (Optional)</label>
+                <Input
+                  placeholder="ramesh@pmc.gov.in"
+                  value={newWorkerForm.email}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, email: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Designation / Role</label>
+                <Select
+                  value={newWorkerForm.designation}
+                  onValueChange={val => setNewWorkerForm({ ...newWorkerForm, designation: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select designation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DESIGNATION_OPTIONS.map(d => (
+                      <SelectItem key={d} value={d}>{d}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Skill Category</label>
+                <Select
+                  value={newWorkerForm.skillType}
+                  onValueChange={val => setNewWorkerForm({ ...newWorkerForm, skillType: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select skill" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SKILL_OPTIONS.map(s => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Organization / Contractor</label>
+                <Input
+                  placeholder="e.g. PMC Operations"
+                  value={newWorkerForm.assignedContractor}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, assignedContractor: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Ward / Jurisdiction Area</label>
+                <Input
+                  placeholder="e.g. Ward 14 - Kothrud"
+                  value={newWorkerForm.wardArea}
+                  onChange={e => setNewWorkerForm({ ...newWorkerForm, wardArea: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-indigo-50/70 p-3 border border-indigo-100 text-xs text-indigo-900">
+              Department: <strong className="text-indigo-950 font-bold">{dept}</strong> (Preset by Department Head)
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsAddWorkerOpen(false)} disabled={isSubmittingWorker}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold"
+              onClick={handleAddWorkerSubmit}
+              disabled={isSubmittingWorker}
+            >
+              {isSubmittingWorker ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Registering...</> : 'Register Worker'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generated Worker Credentials Dialog */}
+      <Dialog open={!!createdWorkerCredentials} onOpenChange={(open) => { if (!open) setCreatedWorkerCredentials(null); }}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-6">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-2">
+              <CheckCircle2 className="h-6 w-6" />
+            </div>
+            <DialogTitle className="text-center text-xl font-bold">Worker Account Registered</DialogTitle>
+            <DialogDescription className="text-center text-xs">
+              Account created for <strong className="text-foreground">{createdWorkerCredentials?.fullName}</strong> in {dept}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 my-2">
+            <div className="rounded-xl bg-slate-50 border p-3 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Worker Employee ID:</span>
+                <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded border border-slate-200">{createdWorkerCredentials?.workerId}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Auto-generated Password:</span>
+                <span className="font-mono font-bold text-sm bg-white px-2 py-0.5 rounded border border-slate-200">{createdWorkerCredentials?.password}</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground font-medium">Mobile Number:</span>
+                <span className="font-mono text-xs">{createdWorkerCredentials?.phoneNumber}</span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="rounded-xl gap-1.5 text-xs"
+              onClick={() => {
+                if (!createdWorkerCredentials) return;
+                navigator.clipboard.writeText(`Worker ID: ${createdWorkerCredentials.workerId}\nPassword: ${createdWorkerCredentials.password}\nPortal: /worker/login`);
+                setCopied(true);
+                toast({ title: 'Credentials Copied', description: 'Worker ID and Password copied to clipboard.' });
+                setTimeout(() => setCopied(false), 2000);
+              }}
+            >
+              {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              {copied ? 'Copied!' : 'Copy Credentials'}
+            </Button>
+            <Button
+              type="button"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs"
+              onClick={() => setCreatedWorkerCredentials(null)}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

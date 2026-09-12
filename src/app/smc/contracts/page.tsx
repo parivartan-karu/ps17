@@ -1,17 +1,20 @@
-'use client';
+  'use client';
 
 import { useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
 import { addDoc, collection, orderBy, query, serverTimestamp } from 'firebase/firestore';
 import type { Report } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { UserCheck, ClipboardPlus, Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Trash2, Clock, Users, Copy, Check, MessageSquareWarning } from 'lucide-react';
+import { UserCheck, ClipboardPlus, Upload, FileSpreadsheet, FileText, CheckCircle2, AlertCircle, Trash2, Clock, Users, Copy, Check, MessageSquareWarning, Building, TrendingUp, ShieldAlert, Award, AlertTriangle, Activity } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { DeptIcon } from '@/components/dept-icon';
 import { useToast } from '@/hooks/use-toast';
 import { buildAuthHeaders } from '@/lib/client-auth';
 import {
@@ -310,6 +313,96 @@ export default function SmcContractsPage() {
     return Array.from(set).sort();
   }, [contractors]);
 
+  const departmentPerformance = useMemo(() => {
+    const deptMap: Record<string, {
+      name: string;
+      contractorCount: number;
+      activeCases: number;
+      resolvedCases: number;
+      overdueCases: number;
+      totalCases: number;
+      slaCompliance: number;
+      healthStatus: 'Optimal' | 'At Risk' | 'Critical SLA Breach';
+    }> = {};
+
+    DEPARTMENT_OPTIONS.forEach((dept) => {
+      deptMap[dept] = {
+        name: dept,
+        contractorCount: 0,
+        activeCases: 0,
+        resolvedCases: 0,
+        overdueCases: 0,
+        totalCases: 0,
+        slaCompliance: 100,
+        healthStatus: 'Optimal',
+      };
+    });
+
+    (contractors || []).forEach((c) => {
+      if (c.department) {
+        if (!deptMap[c.department]) {
+          deptMap[c.department] = {
+            name: c.department,
+            contractorCount: 0,
+            activeCases: 0,
+            resolvedCases: 0,
+            overdueCases: 0,
+            totalCases: 0,
+            slaCompliance: 100,
+            healthStatus: 'Optimal',
+          };
+        }
+        deptMap[c.department].contractorCount += 1;
+      }
+    });
+
+    const nowMs = Date.now();
+    (reports || []).forEach((r) => {
+      const deptName = r.department || 'Unassigned';
+      if (!deptMap[deptName]) {
+        deptMap[deptName] = {
+          name: deptName,
+          contractorCount: 0,
+          activeCases: 0,
+          resolvedCases: 0,
+          overdueCases: 0,
+          totalCases: 0,
+          slaCompliance: 100,
+          healthStatus: 'Optimal',
+        };
+      }
+      const entry = deptMap[deptName];
+      entry.totalCases += 1;
+
+      const isActive = ['Submitted', 'Under Verification', 'Assigned', 'In Progress'].includes(r.status);
+      if (isActive) {
+        entry.activeCases += 1;
+        const isOverdue = r.slaBreached || (r.slaDeadline && new Date(r.slaDeadline).getTime() < nowMs);
+        if (isOverdue) entry.overdueCases += 1;
+      }
+      if (r.status === 'Resolved') {
+        entry.resolvedCases += 1;
+      }
+    });
+
+    return Object.values(deptMap).map((d) => {
+      const slaBreaches = (reports || []).filter(
+        (r) => (r.department === d.name || (!r.department && d.name === 'Unassigned')) && r.slaBreached
+      ).length;
+      const slaCompliance = d.totalCases > 0 ? Math.max(0, Math.round(((d.totalCases - slaBreaches) / d.totalCases) * 100)) : 100;
+
+      let healthStatus: 'Optimal' | 'At Risk' | 'Critical SLA Breach' = 'Optimal';
+      if (d.overdueCases > 2 || slaCompliance < 70) healthStatus = 'Critical SLA Breach';
+      else if (d.overdueCases > 0 || slaCompliance < 85) healthStatus = 'At Risk';
+
+      return {
+        ...d,
+        slaCompliance,
+        healthStatus,
+      };
+    }).sort((a, b) => (b.activeCases + b.contractorCount) - (a.activeCases + a.contractorCount));
+  }, [reports, contractors]);
+
   const handleNewContractorChange = (field: keyof typeof newContractor, value: string) => {
     setNewContractor((previous) => ({ ...previous, [field]: value }));
   };
@@ -512,9 +605,127 @@ export default function SmcContractsPage() {
   return (
     <div className="space-y-8">
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 md:p-8 rounded-lg shadow-lg">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2">Contractors & Workers</h1>
-        <p className="text-base md:text-lg">Manage contractors and add workers.</p>
+        <h1 className="text-3xl md:text-4xl font-bold mb-2">Department Performance</h1>
+        <p className="text-base md:text-lg">Inspect department SLA performance metrics, contractor allocations, and city operations.</p>
       </div>
+
+      {/* Department Performance Scorecard Card */}
+      <Card className="border-indigo-100 bg-white shadow-sm overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-indigo-50/80 via-white to-purple-50/50 border-b p-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-xl font-bold text-slate-900">
+                <Building className="h-5 w-5 text-indigo-600" />
+                Department Performance Scorecard
+              </CardTitle>
+              <CardDescription className="text-xs text-slate-600 mt-1">
+                Monitor municipal department efficiency, contractor allocation, active workloads, and SLA compliance.
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-white border-indigo-200 text-indigo-700 font-semibold text-xs px-3 py-1">
+                <Users className="h-3.5 w-3.5 mr-1" />
+                {contractors?.length || 0} Registered Contractors
+              </Badge>
+              <Button size="sm" variant="outline" asChild className="text-xs font-semibold text-indigo-600 border-indigo-200 hover:bg-indigo-50">
+                <Link href="/smc/analytics">Detailed Analytics &rarr;</Link>
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-slate-50/80 hover:bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-600">
+                  <TableHead className="py-3 font-bold">Department</TableHead>
+                  <TableHead className="text-center font-bold">Contractors</TableHead>
+                  <TableHead className="text-center font-bold">Active Cases</TableHead>
+                  <TableHead className="text-center font-bold">Resolved Cases</TableHead>
+                  <TableHead className="text-center font-bold">SLA Compliance</TableHead>
+                  <TableHead className="text-center font-bold">Overdue Queue</TableHead>
+                  <TableHead className="text-right font-bold">Health Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {departmentPerformance.length > 0 ? (
+                  departmentPerformance.map((dept) => (
+                    <TableRow key={dept.name} className="hover:bg-indigo-50/30 transition-colors">
+                      <TableCell className="font-semibold text-slate-900">
+                        <div className="flex items-center gap-2.5">
+                          <div className="h-8 w-8 rounded-lg bg-indigo-100/70 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            <DeptIcon dept={dept.name} className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold">{dept.name}</p>
+                            <p className="text-[11px] text-muted-foreground">{dept.totalCases} total complaints filed</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center font-bold">
+                        <Badge variant="secondary" className="bg-slate-100 font-bold text-xs">
+                          {dept.contractorCount}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-slate-800">
+                        {dept.activeCases > 0 ? (
+                          <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-xs">
+                            {dept.activeCases} Active
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-xs">0</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center font-semibold text-emerald-600">
+                        {dept.resolvedCases}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center">
+                          <span className={`text-xs font-extrabold ${dept.slaCompliance >= 85 ? 'text-emerald-600' : dept.slaCompliance >= 70 ? 'text-amber-600' : 'text-rose-600'}`}>
+                            {dept.slaCompliance}%
+                          </span>
+                          <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden mt-1">
+                            <div
+                              className={`h-full rounded-full ${dept.slaCompliance >= 85 ? 'bg-emerald-500' : dept.slaCompliance >= 70 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                              style={{ width: `${dept.slaCompliance}%` }}
+                            />
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {dept.overdueCases > 0 ? (
+                          <Badge variant="destructive" className="font-bold text-[11px] px-2 py-0.5">
+                            {dept.overdueCases} Overdue
+                          </Badge>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-medium">0 Breaches</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Badge className={`text-[10px] font-bold px-2 py-0.5 ${
+                          dept.healthStatus === 'Optimal'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                            : dept.healthStatus === 'At Risk'
+                            ? 'bg-amber-100 text-amber-800 border-amber-200'
+                            : 'bg-rose-100 text-rose-800 border-rose-200'
+                        }`}>
+                          {dept.healthStatus}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-6 text-center text-muted-foreground text-xs">
+                      Loading department performance metrics...
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -565,104 +776,21 @@ export default function SmcContractsPage() {
             </div>
           </div>
 
-          <div className="mb-6 rounded-xl border p-4">
-            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-              <ClipboardPlus className="h-4 w-4" /> Add Worker Under Contractor
-            </h3>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              <Input
-                value={newWorker.fullName}
-                onChange={(event) => handleNewWorkerChange('fullName', event.target.value)}
-                placeholder="Full Name"
-              />
-              <Input
-                value={newWorker.phoneNumber}
-                onChange={(event) => handleNewWorkerChange('phoneNumber', event.target.value)}
-                placeholder="Phone Number"
-              />
-              <Input
-                value={newWorker.email}
-                onChange={(event) => handleNewWorkerChange('email', event.target.value)}
-                placeholder="Email (optional)"
-              />
-
-              <Select value={newWorker.department} onValueChange={handleWorkerDepartmentChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DEPARTMENT_OPTIONS.map((department) => (
-                    <SelectItem key={department} value={department}>{department}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={newWorker.designation} onValueChange={(value) => handleNewWorkerChange('designation', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Role / Designation" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRoles.map((designation) => (
-                    <SelectItem key={designation} value={designation}>{designation}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={newWorker.skillType} onValueChange={(value) => handleNewWorkerChange('skillType', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Skill Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSkills.map((skill) => (
-                    <SelectItem key={skill} value={skill}>{skill}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={newWorker.assignedContractor}
-                onValueChange={(value) => {
-                  handleNewWorkerChange('assignedContractor', value);
-                  const detectedDepartment = contractorDepartmentMap[value];
-                  if (detectedDepartment && (DEPARTMENT_OPTIONS.includes(detectedDepartment) || DEPARTMENT_METADATA[detectedDepartment])) {
-                    handleWorkerDepartmentChange(detectedDepartment);
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Assigned Contractor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {contractorOptions.map((contractor) => (
-                    <SelectItem key={contractor} value={contractor}>{contractor}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Input
-                value={newWorker.wardArea}
-                onChange={(event) => handleNewWorkerChange('wardArea', event.target.value)}
-                placeholder="Ward / Area"
-              />
-
-              <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-                Worker ID and Password are auto-generated and sent by SMS after successful creation.
+          <div className="mb-6 rounded-xl border border-indigo-100 bg-indigo-50/60 p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shadow-sm">
+                <Users className="h-5 w-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-sm text-indigo-950">Field Worker Registration Policy</h4>
+                <p className="text-xs text-indigo-700 font-medium">
+                  Field worker account registration is managed directly by respective Department Heads via their Department Operations Roster (<code className="bg-indigo-100 px-1 rounded text-indigo-900">/dept/workers</code>). Administrators manage Contractor registrations and municipal department contracts.
+                </p>
               </div>
             </div>
-
-            {workerCreateConflictMessage ? (
-              <Alert variant="destructive" className="mt-3">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Worker already exists</AlertTitle>
-                <AlertDescription>{workerCreateConflictMessage}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            <div className="mt-4 flex justify-end">
-              <Button onClick={requestCreateWorker} disabled={isCreatingWorker || contractorOptions.length === 0}>
-                {isCreatingWorker ? 'Adding...' : 'Add Worker'}
-              </Button>
-            </div>
+            <Button size="sm" variant="outline" asChild className="shrink-0 text-xs font-bold border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50">
+              <Link href="/dept/workers">View Department Workers &rarr;</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>
